@@ -1,0 +1,38 @@
+show
+moves
+a1
+z9
+move z9
+pass
+d3
+show
+moves
+c5
+undo
+show
+c3
+moves
+undo
+undo
+undo
+undo
+divide 3
+pos OX-------------------------------------------------------------- X
+show
+moves
+d1
+pass
+show
+moves
+c1
+pos X--------------------------------------------------------------- O
+moves
+pos foo
+frobnicate
+new
+f5
+f6
+e6
+f4
+e3
+show

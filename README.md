@@ -2,7 +2,13 @@
 
 Play the game of Othello on the NICE processor.
 
-This is a plan. Nothing is built yet. The engine will be for Othello
+This is a plan, and the start of its work. What is built so far is the
+board, the move generator, and a text front end to set up positions,
+make moves, and run perft, on the host, in niceemu, and on the MEGA65.
+There is no search yet. CONTRIBUTING.md says how to build it and run
+the tests, and doc/HISTORY.md how far the work has come.
+
+The engine will be for Othello
 what [nice_chess](https://github.com/MJoergen/nice_chess) is for chess:
 a program in C, translated for the NICE CPU by the toolchain of
 [nice_cpu](https://github.com/MJoergen/nice_cpu), which runs in
