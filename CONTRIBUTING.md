@@ -15,6 +15,8 @@ a C compiler for the host, `git`, and `curl`.
     make perft-deep  # perft to depth 11 on the host, without the checks (a few seconds)
     make ffo-deep    # FFO positions 20 to 38 on the host (about a minute)
     make match-random   # the host build at depth 4 against random moves (20 games)
+    make train       # learn the N-tuple weights by self-play into build/train/weights.bin
+    make match-hand  # the N-tuple evaluation with those weights against the hand-written one
     make size        # the size of the MEGA65 build, against the 92K words the monitor leaves it
 
 To use local copies of nice_cpu and niceemu instead, pass `NICE_CPU=DIR`
@@ -49,6 +51,9 @@ MEGA65 build after a stand-in for the monitor:
   of the moves each evaluated from scratch, and that a search leaves
   the indexes as it found them. 200 positions on the host, 20 in
   niceemu. perft and `randgames` check the indexes too.
+- `train`: the selftest of `tools/train.c`: 2000 games of training, and
+  then the values are antisymmetric in the colours, and the weights it
+  writes give the engine the trainer's values, to the rounding.
 - `ffo1`: `tests/ffosuite.c` solves the FFO positions 1 to 19 (3 in
   niceemu), of 14 to 16 empty squares, which must give the published
   scores. `make ffo-deep` solves 20 to 38, of up to 24.

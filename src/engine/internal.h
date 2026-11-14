@@ -109,11 +109,18 @@ typedef struct
     uint8_t squares[NT_MAX_SQUARES];
 } nt_def_t;
 
+// The trainer (tools/train.c) runs games in threads, each with indexes
+// of its own: it builds with NT_TLS _Thread_local.
+#ifndef NT_TLS
+#define NT_TLS
+#endif
+
 extern const nt_def_t nt_defs[NT_PATTERNS];
 extern int nt_places;
 extern uint8_t nt_place_pattern[NT_MAX_PLACES];
 extern uint8_t nt_place_squares[NT_MAX_PLACES][NT_MAX_SQUARES];
-extern uint16_t nt_index[NT_MAX_PLACES];
+extern uint32_t nt_place_offset[NT_MAX_PLACES];  // Of its table, in a stage
+extern NT_TLS uint16_t nt_index[NT_MAX_PLACES];
 
 void nt_init(void);
 int nt_place_index(int q, bb_t black, bb_t white);  // From scratch

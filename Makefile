@@ -46,7 +46,7 @@ BUDGET = 94176
 ENGINE  = $(wildcard src/engine/*.c)
 # The headers, and the Makefile, whose flags every build takes, so that
 # a change of the flags rebuilds.
-HEADERS = $(wildcard src/engine/*.h) src/platform/platform.h src/ui/version.h Makefile
+HEADERS = $(wildcard src/engine/*.h) src/platform/platform.h src/ui/version.h src/ui/weights_file.h Makefile
 # The version, for the front end (VERSION).
 VERSIONC = build/gen/version.c
 
@@ -58,12 +58,10 @@ TT_BITS      = 13
 TT_BITS_FAST = 20
 
 # The patterns of the N-tuple evaluation (NT_MASK, a bit for each of
-# nt_defs in src/engine/ntuple.c) and its stages. The NICE builds and
-# the host builds of the tests have the same; the fast host build has
-# all the patterns. 0xF98 is row1, row2, and the diagonals: 45848
-# weights in 2 stages.
-NT_FLAGS      = -D NT_MASK=0xF98 -D NT_STAGES=2
-NT_FLAGS_FAST = -D NT_MASK=0xFFF -D NT_STAGES=4
+# nt_defs in src/engine/ntuple.c) and its stages. All the builds have
+# the same, so that the weights of the trainer load in each. 0xF98 is
+# row1, row2, and the diagonals: 45848 weights in 2 stages.
+NT_FLAGS = -D NT_MASK=0xF98 -D NT_STAGES=2
 
 # NICE: optimized for speed, without asserts, and without the bounds
 # checks of wasm's memory accesses, which the host builds' asserts and
@@ -82,7 +80,14 @@ MONFLAGS = $(NICEFLAGS) --monitor
 # every node of perft against the plain generator of check.c.
 HOSTFLAGS = -O2 -W -Wall -Wextra -DCHECK_STATE -DTT_BITS=$(TT_BITS) $(NT_FLAGS)
 # The host, fast: without asserts and the check, and with a larger table.
-FASTFLAGS = -O2 -W -Wall -Wextra -DNDEBUG -DTT_BITS=$(TT_BITS_FAST) $(NT_FLAGS_FAST)
+FASTFLAGS = -O2 -W -Wall -Wextra -DNDEBUG -DTT_BITS=$(TT_BITS_FAST) $(NT_FLAGS)
+
+# The trainer (tools/train.c): its games, threads, and other options,
+# and the weights it writes, and that make match-hand plays.
+TRAIN_GAMES   ?= 2000000
+TRAIN_THREADS ?= 8
+TRAIN_ARGS    ?=
+WEIGHTS       ?= build/train/weights.bin
 
 # The random games of tests/randgames.c, on the host and in niceemu.
 RANDGAMES_HOST = 10000
@@ -95,7 +100,7 @@ NTCHECK_HOST = 200
 NTCHECK_NICE = 20
 
 
-.PHONY: FORCE help all test host-test nice-test perft-deep ffo-deep match-random size deps clean distclean board-text
+.PHONY: FORCE help all test host-test nice-test perft-deep ffo-deep match-random train match-hand size deps clean distclean board-text
 help:
 	@echo "nice_othello: an Othello engine for the NICE system"
 	@echo ""
@@ -106,6 +111,9 @@ help:
 	@echo "  make perft-deep    perft to depth 11 on the host, without the checks (a few seconds)"
 	@echo "  make ffo-deep      solve FFO positions 20 to 38 on the host (about a minute)"
 	@echo "  make match-random  the host build at depth 4 against random moves (20 games)"
+	@echo "  make train         learn the N-tuple weights by self-play into WEIGHTS (build/train/weights.bin)"
+	@echo "                     (TRAIN_GAMES=$(TRAIN_GAMES), TRAIN_THREADS=$(TRAIN_THREADS), TRAIN_ARGS= more options of tools/train.c)"
+	@echo "  make match-hand    the N-tuple evaluation with WEIGHTS against the hand-written one, at depth 4 (100 games)"
 	@echo "  make size          the size of the MEGA65 build, against the board's budget"
 	@echo "  make clean         remove build/"
 	@echo "  make distclean     remove build/ and deps/"
@@ -175,6 +183,10 @@ build/host/solvecheck: $(ENGINE) $(HEADERS) tests/solvecheck.c
 	@mkdir -p $(@D)
 	$(CC) $(HOSTFLAGS) -o $@ $(ENGINE) tests/solvecheck.c
 
+build/host/train: $(ENGINE) $(HEADERS) tools/train.c
+	@mkdir -p $(@D)
+	$(CC) $(FASTFLAGS) -DNT_TLS=_Thread_local -pthread -o $@ $(ENGINE) tools/train.c -lm
+
 build/host/ntcheck: $(ENGINE) $(HEADERS) tests/ntcheck.c
 	@mkdir -p $(@D)
 	$(CC) $(HOSTFLAGS) -o $@ $(ENGINE) tests/ntcheck.c
@@ -206,7 +218,8 @@ $(FFO1_NICE): $(FFO1)
 
 test: host-test nice-test
 
-host-test: build/host/othello_text build/host/randgames build/host/solvecheck build/host/ffosuite build/host/ntcheck $(FFO1)
+host-test: build/host/othello_text build/host/randgames build/host/solvecheck build/host/ffosuite build/host/ntcheck \
+           build/host/train $(FFO1)
 	@tools/runtest.sh host_text text tests/text.input host build/host/othello_text
 	@tools/runtest.sh host_search search tests/search.input host build/host/othello_text
 	@tools/runtest.sh host_perft9 perft9 tests/perft9.input host build/host/othello_text
@@ -214,6 +227,7 @@ host-test: build/host/othello_text build/host/randgames build/host/solvecheck bu
 	@tools/runtest.sh host_solvecheck solvecheck$(word 2,$(SOLVECHECK_HOST)) /dev/null host build/host/solvecheck $(SOLVECHECK_HOST)
 	@tools/runtest.sh host_ffo1 ffo1 $(FFO1) host build/host/ffosuite
 	@tools/runtest.sh host_ntcheck ntcheck$(NTCHECK_HOST) /dev/null host build/host/ntcheck $(NTCHECK_HOST)
+	@tools/runtest.sh host_train train /dev/null host build/host/train --selftest build/test/train_selftest.bin
 
 nice-test: build/nice/othello_text.bin build/nice/randgames.bin build/nice/solvecheck.bin build/nice/ffosuite.bin \
            build/nice/ntcheck.bin \
@@ -241,6 +255,15 @@ $(FFO20_38): $(FFO20)
 
 ffo-deep: build/host/ffosuite_fast $(FFO20_38)
 	@tools/runtest.sh host_ffo20 ffo20-38 $(FFO20_38) host build/host/ffosuite_fast
+
+# The trainer, which writes WEIGHTS every 100000 games, and prints the
+# score of the learned evaluation against the hand-written one then.
+train: build/host/train
+	@mkdir -p $(dir $(WEIGHTS))
+	build/host/train --games $(TRAIN_GAMES) --threads $(TRAIN_THREADS) $(TRAIN_ARGS) $(WEIGHTS)
+
+match-hand: build/host/othello_fast
+	$(PYTHON) tools/match.py --openings 50 --init1 "weights $(WEIGHTS)" build/host/othello_fast build/host/othello_fast
 
 # Against random moves, at depth 4: it must win every game.
 match-random: build/host/othello_fast

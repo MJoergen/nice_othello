@@ -45,6 +45,11 @@ int platform_on_board(void);
 // niceemu, so that a run there is the same every time.
 uint32_t platform_seed(void);
 
+// Reads size bytes of the file name, from offset on, into buf. Returns
+// the number of bytes read, or -1 if the file cannot be read. NICE has
+// no files: there it always returns -1.
+int platform_read_file(const char *name, uint32_t offset, void *buf, uint32_t size);
+
 // The next byte of the console's input, if one waits: 0 to 255, or
 // -2 if none waits yet, or -1 once the input has ended. From a file,
 // or from stdin in niceemu, it waits for the next byte, and never

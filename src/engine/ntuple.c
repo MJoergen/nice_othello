@@ -63,7 +63,7 @@ const nt_def_t nt_defs[NT_PATTERNS] =
 int nt_places;
 uint8_t nt_place_pattern[NT_MAX_PLACES];
 uint8_t nt_place_squares[NT_MAX_PLACES][NT_MAX_SQUARES];
-static uint32_t place_offset[NT_MAX_PLACES];
+uint32_t nt_place_offset[NT_MAX_PLACES];
 
 // For each square, the places it is in, and its power of 3 in each:
 // the entries from square_first[sq] to square_first[sq + 1] - 1.
@@ -71,7 +71,7 @@ static uint16_t square_first[65];
 static uint8_t  entry_place[NT_MAX_ENTRIES];
 static uint16_t entry_power[NT_MAX_ENTRIES];
 
-uint16_t nt_index[NT_MAX_PLACES];
+NT_TLS uint16_t nt_index[NT_MAX_PLACES];
 
 static int16_t weights[NT_STAGES * NT_STAGE_SIZE];
 
@@ -132,7 +132,7 @@ void nt_init(void)
             nt_place_pattern[nt_places] = (uint8_t) p;
             for (int k = 0; k < d->n; ++k)
                 nt_place_squares[nt_places][k] = sq[k];
-            place_offset[nt_places] = offset;
+            nt_place_offset[nt_places] = offset;
             ++nt_places;
         }
         offset += power3(d->n);
@@ -240,7 +240,7 @@ int nt_eval(int black, int discs)
     const int16_t *w = weights + nt_stage(discs) * NT_STAGE_SIZE;
     int32_t sum = 0;
     for (int q = 0; q < nt_places; ++q)
-        sum += w[place_offset[q] + nt_index[q]];
+        sum += w[nt_place_offset[q] + nt_index[q]];
     if (!black)
         sum = -sum;
     sum += w[NT_STAGE_SIZE - 1];
@@ -256,3 +256,9 @@ int16_t *engine_ntuple_weights(int *n)
     *n = NT_STAGES * NT_STAGE_SIZE;
     return weights;
 } // end of engine_ntuple_weights
+
+void engine_ntuple_layout(uint32_t *mask, int *stages)
+{
+    *mask = NT_MASK;
+    *stages = NT_STAGES;
+} // end of engine_ntuple_layout

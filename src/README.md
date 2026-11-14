@@ -39,7 +39,7 @@ chosen at build time (`NT_MASK`, `NT_STAGES`).
 
 | File | What it does |
 |---|---|
-| `platform.h` | What a front end needs from the machine: the clock, the console's input, and defaults such as the time of a move and the empty squares at which to solve. |
+| `platform.h` | What a front end needs from the machine: the clock, the console's input, the files (none on NICE), and defaults such as the time of a move and the empty squares at which to solve. |
 | `nice.c` | For NICE: niceemu, or the MEGA65 under the monitor. |
 | `host.c` | For a PC. |
 
@@ -47,5 +47,6 @@ chosen at build time (`NT_MASK`, `NT_STAGES`).
 
 | File | What it does |
 |---|---|
-| `text.c` | The text front end on the console: set up positions, make and take back moves, search (`go`), solve, choose the evaluation, perft. |
+| `text.c` | The text front end on the console: set up positions, make and take back moves, search (`go`), solve, choose the evaluation, load weights, perft. |
 | `version.h` | The version of the build, which the Makefile writes into `build/gen/version.c`. |
+| `weights_file.h` | The format of a file of N-tuple weights, which `tools/train.c` writes and `weights FILE` loads. |

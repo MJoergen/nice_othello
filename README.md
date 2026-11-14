@@ -5,9 +5,10 @@ Play the game of Othello on the NICE processor.
 This is a plan, and the start of its work. What is built so far is the
 board, the move generator, an alpha-beta search with an evaluation
 written by hand, the exact solver of the end of the game, and a text
-front end, on the host, in niceemu, and on the MEGA65. The N-tuple
-evaluation is built, with its indexes kept up to date as discs are
-placed and flipped, but its weights are not learned yet. CONTRIBUTING.md says how to build it and run
+front end, on the host, in niceemu, and on the MEGA65; and the N-tuple
+evaluation, with a trainer that learns its weights by self-play on the
+host. The host loads the weights it writes; the NICE builds do not have
+them yet, and play with the evaluation written by hand. CONTRIBUTING.md says how to build it and run
 the tests, and doc/HISTORY.md how far the work has come.
 
 The engine will be for Othello

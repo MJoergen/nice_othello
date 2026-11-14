@@ -73,6 +73,25 @@ its places and its power of 3 in each. The game's indexes are kept by
 `board.c`, from scratch after an undo; the search updates them around
 each move, only when the N-tuple evaluation is in use.
 
+## Stage 4: the trainer (2026-11-14)
+
+`tools/train.c` learns the weights of the N-tuple evaluation by self-play
+on the host, with TD(λ) on afterstates: the program plays the move
+whose afterstate it values best, or one at random with probability ε,
+and after the game moves the value of each afterstate towards its
+λ-return, the final disc difference at the end. It shares the engine's
+move generator and the indexes of `ntuple.c`, in threads, each with
+indexes of its own (`NT_TLS`). Each change of a weight goes, negated,
+to the state with the colours swapped too, so that one game teaches
+both colours.
+
+It writes the weights in hundredths of a disc as 16-bit integers, in
+the format of `src/ui/weights_file.h`, which the text front end on the
+host loads with `weights FILE`; the platform reads the file, and NICE,
+with no files, does not. All builds share the patterns and stages
+(`NT_FLAGS`), so that the weights load in each. Putting them in the
+NICE image is for Stage 6.
+
 ## Decisions
 
 1. nice_cpu is pinned to V2.0, the release nice_chess uses.
@@ -103,3 +122,9 @@ each move, only when the N-tuple evaluation is in use.
 7. The value of a position is that of black, negated for white, plus
    the weight of having the move: one table for both colours, from
    black's view.
+8. The trainer's threads share the weights without locks, but each
+   change of a weight is an atomic addition: with plain additions, the
+   weights of a run of 8 threads grew without bound (LOG.md).
+9. The trained weights are not in git yet: they are made by `make
+   train`, in minutes. Stage 6, which puts them in the NICE image, will
+   commit the table it makes.

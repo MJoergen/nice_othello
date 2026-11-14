@@ -149,4 +149,8 @@ void engine_set_eval(int kind);
 // *n of them, laid out as ntuple.c says.
 int16_t *engine_ntuple_weights(int *n);
 
+// The patterns (a bit for each, NT_MASK) and the stages of the build,
+// which a file of weights must have.
+void engine_ntuple_layout(uint32_t *mask, int *stages);
+
 #endif // ENGINE_H

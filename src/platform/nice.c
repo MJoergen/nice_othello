@@ -74,3 +74,9 @@ int platform_getc(void)
 {
     return nice_getc();
 }
+
+int platform_read_file(const char *name, uint32_t offset, void *buf, uint32_t size)
+{
+    (void) name; (void) offset; (void) buf; (void) size;
+    return -1;
+}

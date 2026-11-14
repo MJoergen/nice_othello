@@ -5,6 +5,7 @@
  ***************************************************************/
 
 #include <poll.h>
+#include <stdio.h>
 #include <time.h>
 #include <unistd.h>
 #include "platform.h"
@@ -56,4 +57,16 @@ int platform_getc(void)
 {
     unsigned char c;
     return read(0, &c, 1) == 1 ? c : -1;
+}
+
+int platform_read_file(const char *name, uint32_t offset, void *buf, uint32_t size)
+{
+    FILE *f = fopen(name, "rb");
+    if (!f)
+        return -1;
+    int n = -1;
+    if (fseek(f, (long) offset, SEEK_SET) == 0)
+        n = (int) fread(buf, 1, size, f);
+    fclose(f);
+    return n;
 }

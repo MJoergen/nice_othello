@@ -13,6 +13,9 @@
  *   eval            the static evaluation of the position
  *   evaluation E    use the evaluation E: hand (the default), written
  *                   by hand, or ntuple, the N-tuple network
+ *   weights FILE    load the weights of the N-tuple network, as
+ *                   tools/train.c writes them, and use it (not on NICE,
+ *                   which has no files)
  *   solve N         solve exactly at N empty squares or fewer
  *   perft N         count the leaves of the tree of moves of depth N
  *   divide N        perft N - 1 after each legal move
@@ -42,6 +45,7 @@
 #include "../engine/engine.h"
 #include "../platform/platform.h"
 #include "version.h"
+#include "weights_file.h"
 
 static const char disc_chars[] = "-XO";
 
@@ -318,6 +322,35 @@ static void do_go(char *rest)
     print_state();
 } // end of do_go
 
+static void do_weights(const char *name)
+{
+    weights_header_t h;
+    uint32_t mask;
+    int stages, n;
+    int16_t *w = engine_ntuple_weights(&n);
+    engine_ntuple_layout(&mask, &stages);
+
+    if (platform_read_file(name, 0, &h, sizeof h) != (int) sizeof h
+        || memcmp(h.magic, WEIGHTS_MAGIC, sizeof h.magic))
+    {
+        printf("Cannot read weights from %s\n", name);
+        return;
+    }
+    if (h.mask != mask || h.stages != (uint32_t) stages || h.count != (uint32_t) n)
+    {
+        printf("Weights of patterns 0x%lX in %lu stages, not 0x%lX in %d\n", (unsigned long) h.mask,
+               (unsigned long) h.stages, (unsigned long) mask, stages);
+        return;
+    }
+    if (platform_read_file(name, sizeof h, w, (uint32_t) n * 2) != n * 2)
+    {
+        printf("Cannot read weights from %s\n", name);
+        return;
+    }
+    engine_set_eval(ENGINE_EVAL_NTUPLE);    // Clears the table, of the old weights
+    printf("Weights of %s\n", name);
+} // end of do_weights
+
 static void print_help(void)
 {
     printf("Commands:\n"
@@ -330,6 +363,7 @@ static void print_help(void)
            "  go [LIMITS]     search and make a move: depth N, nodes N, movetime MS, wld\n"
            "  eval            the static evaluation\n"
            "  evaluation E    use the evaluation E: hand or ntuple\n"
+           "  weights FILE    load the weights of the N-tuple network (and use it)\n"
            "  solve N         solve exactly at N empty squares or fewer\n"
            "  perft N         count the leaves of the tree of moves of depth N\n"
            "  divide N        perft N, for each legal move\n"
@@ -399,6 +433,8 @@ int main(void)
             else
                 printf("Invalid evaluation: %s\n", e);
         }
+        else if (!strcmp(cmd, "weights"))
+            do_weights(next_word(&rest));
         else if (!strcmp(cmd, "solve"))
         {
             uint32_t n;

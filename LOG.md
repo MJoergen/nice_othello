@@ -2,6 +2,55 @@
 
 Investigations made during the development (doc/HISTORY.md), newest first.
 
+## 2026-11-14: The first training, at Stage 4
+
+The patterns of all the builds (`NT_MASK` 0xF98: row1, row2, and the
+diagonals, 52 places, 45848 weights in 2 stages), `tools/train.c` with
+λ 0.5, ε 0.1, and up to 6 random moves at the start of a game. The
+score is that of the trainer's own match: the learned evaluation
+against the hand-written one, both by the afterstates alone (1 ply),
+200 games. The machine was shared with other work, at a load of 13 to
+75 on its 20 threads, so the speeds are low bounds.
+
+The rate α, and the threads:
+
+| Threads | α | Games | Score along the run | Largest weight |
+|---:|---:|---:|---|---:|
+| 1 | 0.0005 | 1000000 | 78%, 85% at 300000, 87% | 10 |
+| 1 | 0.001 | 300000 | 83%, 88% | |
+| 8 | 0.0005 | 300000 | 82%, 85%, then 40% | |
+| 8 | 0.001 | 300000 | 44%, 7% | |
+| 8 | 0.0002 | 3000000 | 82% at 250000, 73%, 33%, 6% | 8123 |
+
+With 8 threads, the weights grew without bound, at every rate tried,
+sooner at the higher ones; with one thread, they did not. The threads
+shared only the weights, and added to them with plain `+=`, so they lost
+some of each other's changes. Each change of a weight goes, negated, to
+the state with the colours swapped too, and a pair whose two changes do
+not both get lost no longer cancels: the antisymmetry drifts, most on
+the weights that every game changes (the weight of the move, the states
+of the openings), and the bootstrapping of TD then feeds the error.
+With each change an atomic addition (a compare and exchange), 8 threads
+at α 0.0005 kept the score at 84 to 88% to 1500000 games, the largest
+weight at 10, as one thread did. The speed was about 29000 games a
+second, as without the atomics; one thread, about 2000 to 3000 (with
+the load).
+
+`make train`, 2000000 games, 8 threads, α 0.0005: 32000 games a second,
+the score at 85 to 89% from 250000 games on. Its weights, in the
+engine, against the hand-written evaluation, `tools/match.py` with 100
+openings of 6 random moves, each played with both colours:
+
+| Depth | Score |
+|---:|---:|
+| 2 | 138.5 of 200, 69% |
+| 4 | 120.5 of 200, 60% |
+| 6 | 116.5 of 200, 58% |
+
+The learned evaluation is the better one, by less as the search goes
+deeper. These patterns are few: the corners, and rows 3 and 4, are not
+in them.
+
 ## 2026-11-14: The cost of the N-tuple evaluation on NICE, at Stage 3
 
 The text front end in niceemu, `go depth 6` from the start, with the

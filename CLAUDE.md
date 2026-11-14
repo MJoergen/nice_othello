@@ -17,7 +17,8 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
 - `tools/`: `runtest.sh`; `size.py`, which checks the size of the
   MEGA65 build against the budget (from nice_chess); `match.py`, which
   plays two programs, or one and random moves, through the text front
-  end.
+  end; `train.c` (C, on the host), which learns the N-tuple weights by
+  TD(λ) self-play, in threads.
 - `doc/HISTORY.md`: how the engine was built, by stages, and the
   decisions, after the fact. Plans and open items are GitHub issues,
   not files or TODO comments.
@@ -40,6 +41,8 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
     make perft-deep     # perft 11 on the host
     make ffo-deep       # FFO 20-38 on the host (a minute)
     make match-random   # depth 4 against random moves
+    make train          # learn N-tuple weights into build/train/weights.bin (minutes)
+    make match-hand     # those weights against the hand-written evaluation
     make size           # the MEGA65 build against the 92K-word budget
 
 `make board-text` needs `ETH=IP` or `PORT=DEVICE` and a NiceMonMEGA65
@@ -67,7 +70,11 @@ asks.
   still make sense before taking the new ones.
 - The NICE builds and the host builds of the tests share `TT_BITS` and
   the N-tuple patterns and stages (`NT_FLAGS`), so that their searches
-  agree node for node.
+  agree node for node. All builds, and the trainer, share `NT_FLAGS`,
+  so that trained weights load in each.
+- Training runs use many cores for minutes. The machine may be busy
+  with other work: keep the threads modest, and say how loaded it was
+  when reporting speeds.
 - The host build's `CHECK_STATE` checks the N-tuple indexes against
   those from scratch at every node of perft, and of the search when the
   N-tuple evaluation is in use.

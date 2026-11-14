@@ -7,7 +7,8 @@ A player is a command that runs the text front end, such as
 build/host/othello_fast, or the word random, which plays a legal move
 at random. For each move, match.py sends the program the position
 with pos, then go with its limits (--go1, --go2), and reads its
-bestmove. It keeps the game itself, by its own rules of the game, so a
+bestmove. --init1 and --init2 are commands sent once at the start,
+separated by ';', such as "weights build/train/weights.bin". It keeps the game itself, by its own rules of the game, so a
 move that is not legal loses the game for the program that made it.
 Passes are made by match.py, without asking.
 
@@ -96,10 +97,14 @@ def parse(text: str) -> int | None:
 class Program:
     """The text front end of a program, run as a child process."""
 
-    def __init__(self, command: str, go: str) -> None:
+    def __init__(self, command: str, go: str, init: str) -> None:
         self.go = go
         self.proc = subprocess.Popen(shlex.split(command), stdin=subprocess.PIPE,
                                      stdout=subprocess.PIPE, text=True, bufsize=1)
+        assert self.proc.stdin
+        for c in init.split(';'):
+            if c.strip():
+                self.proc.stdin.write(c.strip() + '\n')
 
     def move(self, board: Board) -> str:
         assert self.proc.stdin and self.proc.stdout
@@ -134,8 +139,8 @@ class RandomPlayer:
         pass
 
 
-def make_player(spec: str, go: str, seed: int):
-    return RandomPlayer(seed) if spec == 'random' else Program(spec, go)
+def make_player(spec: str, go: str, init: str, seed: int):
+    return RandomPlayer(seed) if spec == 'random' else Program(spec, go, init)
 
 
 def opening(rng: random.Random, plies: int) -> Board:
@@ -180,6 +185,8 @@ def main() -> int:
     ap.add_argument('player2')
     ap.add_argument('--go1', default='go depth 4', help='the go command of PLAYER1')
     ap.add_argument('--go2', default='go depth 4', help='the go command of PLAYER2')
+    ap.add_argument('--init1', default='', help="commands for PLAYER1 at the start, separated by ';'")
+    ap.add_argument('--init2', default='', help="commands for PLAYER2 at the start, separated by ';'")
     ap.add_argument('--openings', type=int, default=10, help='the number of openings, each played twice')
     ap.add_argument('--plies', type=int, default=6, help='the random moves of an opening')
     ap.add_argument('--seed', type=int, default=1)
@@ -187,8 +194,8 @@ def main() -> int:
     args = ap.parse_args()
 
     rng = random.Random(args.seed)
-    p1 = make_player(args.player1, args.go1, args.seed + 1)
-    p2 = make_player(args.player2, args.go2, args.seed + 2)
+    p1 = make_player(args.player1, args.go1, args.init1, args.seed + 1)
+    p2 = make_player(args.player2, args.go2, args.init2, args.seed + 2)
     score = 0.0
     games = 0
     discs = 0
