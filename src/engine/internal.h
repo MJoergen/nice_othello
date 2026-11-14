@@ -84,10 +84,10 @@ int final_score(bb_t own, bb_t opp);
 // The patterns: bit p of NT_MASK uses nt_defs[p]. NT_STAGES stages
 // of the game, by the number of discs, have weights of their own.
 #ifndef NT_MASK
-#define NT_MASK 0xF98      // row1, row2, and the diagonals
+#define NT_MASK 0xF8A      // The 2x5 corner, row1, and the diagonals
 #endif
 #ifndef NT_STAGES
-#define NT_STAGES 2
+#define NT_STAGES 1
 #endif
 
 #define NT_PATTERNS     12

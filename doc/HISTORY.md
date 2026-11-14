@@ -92,6 +92,16 @@ with no files, does not. All builds share the patterns and stages
 (`NT_FLAGS`), so that the weights load in each. Putting them in the
 NICE image is for Stage 6.
 
+## Stage 5: the patterns and the stages (2026-11-14)
+
+`tools/variant.sh` measured 13 choices of patterns and stages: each
+trained, and played against the hand-written evaluation at depth 4;
+the leaders were trained three times, as one training differs from the
+next by several points. The choice is the 2×5 corner, the edge (row1),
+and the diagonals, in 1 stage (`NT_MASK` 0xF8A): 75412 weights, which
+the NICE builds hold in a fourth page of linear memory. LOG.md has the
+measurements.
+
 ## Decisions
 
 1. nice_cpu is pinned to V2.0, the release nice_chess uses.
@@ -128,3 +138,10 @@ NICE image is for Stage 6.
 9. The trained weights are not in git yet: they are made by `make
    train`, in minutes. Stage 6, which puts them in the NICE image, will
    commit the table it makes.
+10. One stage: at the sizes that fit, more stages did not make the
+    evaluation stronger in the matches, and each costs a full set of
+    tables.
+11. No folding of symmetric states (decision 6). The 2×5 corner, most
+    of the weights, maps onto itself under no symmetry, so it has
+    nothing to fold; and in one stage, a table to fold the edge or a
+    diagonal would cost as many words as it saves.

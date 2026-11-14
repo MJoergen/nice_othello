@@ -59,20 +59,21 @@ TT_BITS_FAST = 20
 
 # The patterns of the N-tuple evaluation (NT_MASK, a bit for each of
 # nt_defs in src/engine/ntuple.c) and its stages. All the builds have
-# the same, so that the weights of the trainer load in each. 0xF98 is
-# row1, row2, and the diagonals: 45848 weights in 2 stages.
-NT_FLAGS = -D NT_MASK=0xF98 -D NT_STAGES=2
+# the same, so that the weights of the trainer load in each. 0xF8A is
+# the 2x5 corner, row1, and the diagonals: 75412 weights in 1 stage,
+# chosen by the measurements of LOG.md (2026-11-14, Stage 5).
+NT_FLAGS = -D NT_MASK=0xF8A -D NT_STAGES=1
 
 # NICE: optimized for speed, without asserts, and without the bounds
 # checks of wasm's memory accesses, which the host builds' asserts and
 # CHECK_STATE stand in for. --trust-alignment leaves out the alignment
 # test of each access of 4 bytes, and --byte-windows reaches the memory
 # through the byte windows of nice_cpu's SYSTEM.md §9 (niceemu and
-# NiceMonMEGA65 from V2.0 on), as in nice_chess. The memory is three
-# pages, 192 KB, for the table's 64 KB, the weights' 92 KB, the move
-# stack, and the stack.
+# NiceMonMEGA65 from V2.0 on), as in nice_chess. The memory is four
+# pages, 256 KB, for the table's 64 KB, the weights' 151 KB, the move
+# stack, and the stack; a fifth page would not fit the board's budget.
 NICEFLAGS = -O 2 -D NDEBUG -D TT_BITS=$(TT_BITS) $(NT_FLAGS) --no-bounds-checks --trust-alignment \
-            --byte-windows --stack 8192 --memory 196608 --symbols --keep
+            --byte-windows --stack 8192 --memory 262144 --symbols --keep
 # The MEGA65: the same, built for the monitor, which loads it at 0x8000.
 MONFLAGS = $(NICEFLAGS) --monitor
 
@@ -84,7 +85,7 @@ FASTFLAGS = -O2 -W -Wall -Wextra -DNDEBUG -DTT_BITS=$(TT_BITS_FAST) $(NT_FLAGS)
 
 # The trainer (tools/train.c): its games, threads, and other options,
 # and the weights it writes, and that make match-hand plays.
-TRAIN_GAMES   ?= 2000000
+TRAIN_GAMES   ?= 3000000
 TRAIN_THREADS ?= 8
 TRAIN_ARGS    ?=
 WEIGHTS       ?= build/train/weights.bin

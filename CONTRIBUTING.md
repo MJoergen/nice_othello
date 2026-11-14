@@ -59,7 +59,9 @@ MEGA65 build after a stand-in for the monitor:
   scores. `make ffo-deep` solves 20 to 38, of up to 24.
 
 `tools/match.py` plays two programs, or one and random moves, from
-random openings, each with both colors.
+random openings, each with both colors. `tools/variant.sh NAME MASK
+STAGES` builds, trains, and measures another choice of the N-tuple
+patterns and stages, in `build/variants/NAME/`.
 
 ## On the MEGA65
 

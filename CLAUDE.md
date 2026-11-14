@@ -18,7 +18,8 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
   MEGA65 build against the budget (from nice_chess); `match.py`, which
   plays two programs, or one and random moves, through the text front
   end; `train.c` (C, on the host), which learns the N-tuple weights by
-  TD(λ) self-play, in threads.
+  TD(λ) self-play, in threads; `variant.sh`, which trains and measures
+  a choice of patterns and stages.
 - `doc/HISTORY.md`: how the engine was built, by stages, and the
   decisions, after the fact. Plans and open items are GitHub issues,
   not files or TODO comments.

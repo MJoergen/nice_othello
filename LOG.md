@@ -2,6 +2,74 @@
 
 Investigations made during the development (doc/HISTORY.md), newest first.
 
+## 2026-11-14: The patterns and the stages, at Stage 5
+
+`tools/variant.sh` builds the trainer and the engine for a choice of
+patterns (`NT_MASK`) and stages, trains 3000000 games on 8 threads, and
+plays the weights against the hand-written evaluation at depth 4, from
+200 openings of 6 random moves, each with both colours: 400 games. The
+machine was shared with other work throughout.
+
+The budget: the MEGA65 build may take 94176 words. Its code is about
+18000, so the linear memory may have 4 pages of 16384 words, 256 KB:
+the stack 8 KB, the move stack 11 KB, the rest of the data about 4 KB,
+the table 64 KB at `TT_BITS` 13 (32 KB at 12), and the weights the rest,
+about 170 KB, 85000 weights (100000 with the smaller table).
+
+| Name | Patterns | Stages | Weights | Places | Score at depth 4 |
+|---|---|---:|---:|---:|---:|
+| base1 | row1, row2, diagonals | 1 | 22924 | 52 | 60.0% |
+| base2 | the same | 2 | 45848 | 52 | 62.4% |
+| base4 | the same | 4 | 91696 | 52 | 61.4% |
+| rows1 | rows 1 to 4, diagonals | 1 | 36046 | 68 | 58.5% |
+| lean2 | 3×3 corner, row1, row2, diag8 | 2 | 78734 | 28 | 63.0% |
+| lean2d7 | lean2 and diag7 | 2 | 83108 | 36 | 68.8% |
+| corner1 | 3×3 corner, row1, row2, diagonals | 1 | 42607 | 60 | 71.8% |
+| edge1 | 3×3 corner, edge and X-squares, diagonals | 1 | 88534 | 52 | 71.9% |
+| c2x5_c3_norow | 3×3 and 2×5 corners, diagonals | 1 | 88534 | 52 | 53.6% |
+| c2x5_lean | 2×5 corner, row1, diag8, diag7 | 1 | 74359 | 28 | 73.1% |
+| c2x5_1 | 2×5 corner, row1, diagonals | 1 | 75412 | 52 | 84.8%, 76.1%, 75.5% |
+| c2x5_r2 | c2x5_1 and row2 | 1 | 81973 | 60 | 80.0%, 81.1%, 77.4% |
+| c2x5_c3 | c2x5_1 and the 3×3 corner | 1 | 95095 | 60 | 75.4%, 80.8%, 80.1% |
+| full4 | all 12 | 4 | 695308 | 92 | 87.4% |
+
+The three scores of a row are three trainings, with the seeds 1, 2, and
+3. They differ by up to 9 points, so the training, in threads, is not
+the same twice, and a single score is good to about ±5 points; the
+match alone, of 400 games, to about ±2.5. With that:
+
+- The 2×5 corner is worth the most: the sets with it score about 79%,
+  those with only the 3×3 corner or the edge about 72%, and the first
+  set about 61%. All 12 patterns in 4 stages, 7 times the budget, score
+  87%.
+- The stages add nothing that these matches show: base1, base2, and
+  base4 are within the noise.
+- Rows 3 and 4 add nothing either.
+- c2x5_1, c2x5_r2, and c2x5_c3 are even. c2x5_c3_norow, at 54%, is
+  one training; it may be a bad one.
+
+c2x5_1 trained for 10000000 games scored 77.9%, as at 3000000: the
+learning has reached what it reaches at α 0.0005 by then.
+
+The cost on NICE, in steps a call, by nice_chess's `tools/prof.c` on
+`go depth 5` in niceemu: `nt_eval` is about 11.5 steps a place and 23
+more, and `nt_play` grows with the squares of the places.
+
+| Places | Sets | `nt_eval` | `nt_play` |
+|---:|---|---:|---:|
+| 28 | lean, c2x5_lean | 367 | 104 to 142 |
+| 36 | lean and diag7 | 459 | 154 |
+| 52 | base, edge1, c2x5_1 | 643 | 175 to 182 |
+| 60 | corner1, c2x5_r2, c2x5_c3 | 735 | 181 to 187 |
+| 68 | rows1 | 827 | 272 |
+
+The choice: c2x5_1, `NT_MASK` 0xF8A in 1 stage. It is as strong as any
+set that fits, and the cheapest of them on NICE, in steps and in words:
+75412 weights, 151 KB, beside a table of 64 KB. The MEGA65 build then
+needs 82689 words of the 94176. c2x5_lean, with half the places, may be
+as good on the board, where a cheaper evaluation searches deeper in the
+same time; that is to measure on NICE, with the weights in the image.
+
 ## 2026-11-14: The first training, at Stage 4
 
 The patterns of all the builds (`NT_MASK` 0xF98: row1, row2, and the
