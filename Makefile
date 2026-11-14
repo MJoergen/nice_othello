@@ -57,23 +57,32 @@ VERSIONC = build/gen/version.c
 TT_BITS      = 13
 TT_BITS_FAST = 20
 
+# The patterns of the N-tuple evaluation (NT_MASK, a bit for each of
+# nt_defs in src/engine/ntuple.c) and its stages. The NICE builds and
+# the host builds of the tests have the same; the fast host build has
+# all the patterns. 0xF98 is row1, row2, and the diagonals: 45848
+# weights in 2 stages.
+NT_FLAGS      = -D NT_MASK=0xF98 -D NT_STAGES=2
+NT_FLAGS_FAST = -D NT_MASK=0xFFF -D NT_STAGES=4
+
 # NICE: optimized for speed, without asserts, and without the bounds
 # checks of wasm's memory accesses, which the host builds' asserts and
 # CHECK_STATE stand in for. --trust-alignment leaves out the alignment
 # test of each access of 4 bytes, and --byte-windows reaches the memory
 # through the byte windows of nice_cpu's SYSTEM.md §9 (niceemu and
-# NiceMonMEGA65 from V2.0 on), as in nice_chess. The memory is two
-# pages, 128 KB, for the table's 64 KB, the move stack, and the stack.
-NICEFLAGS = -O 2 -D NDEBUG -D TT_BITS=$(TT_BITS) --no-bounds-checks --trust-alignment --byte-windows \
-            --stack 8192 --memory 131072 --symbols --keep
+# NiceMonMEGA65 from V2.0 on), as in nice_chess. The memory is three
+# pages, 192 KB, for the table's 64 KB, the weights' 92 KB, the move
+# stack, and the stack.
+NICEFLAGS = -O 2 -D NDEBUG -D TT_BITS=$(TT_BITS) $(NT_FLAGS) --no-bounds-checks --trust-alignment \
+            --byte-windows --stack 8192 --memory 196608 --symbols --keep
 # The MEGA65: the same, built for the monitor, which loads it at 0x8000.
 MONFLAGS = $(NICEFLAGS) --monitor
 
 # The host: with asserts, and a check of the moves and the flips of
 # every node of perft against the plain generator of check.c.
-HOSTFLAGS = -O2 -W -Wall -Wextra -DCHECK_STATE -DTT_BITS=$(TT_BITS)
+HOSTFLAGS = -O2 -W -Wall -Wextra -DCHECK_STATE -DTT_BITS=$(TT_BITS) $(NT_FLAGS)
 # The host, fast: without asserts and the check, and with a larger table.
-FASTFLAGS = -O2 -W -Wall -Wextra -DNDEBUG -DTT_BITS=$(TT_BITS_FAST)
+FASTFLAGS = -O2 -W -Wall -Wextra -DNDEBUG -DTT_BITS=$(TT_BITS_FAST) $(NT_FLAGS_FAST)
 
 # The random games of tests/randgames.c, on the host and in niceemu.
 RANDGAMES_HOST = 10000
@@ -81,6 +90,9 @@ RANDGAMES_NICE = 200
 # The positions of tests/solvecheck.c, and their empty squares.
 SOLVECHECK_HOST = 200 10
 SOLVECHECK_NICE = 20 8
+# The positions of tests/ntcheck.c.
+NTCHECK_HOST = 200
+NTCHECK_NICE = 20
 
 
 .PHONY: FORCE help all test host-test nice-test perft-deep ffo-deep match-random size deps clean distclean board-text
@@ -163,6 +175,14 @@ build/host/solvecheck: $(ENGINE) $(HEADERS) tests/solvecheck.c
 	@mkdir -p $(@D)
 	$(CC) $(HOSTFLAGS) -o $@ $(ENGINE) tests/solvecheck.c
 
+build/host/ntcheck: $(ENGINE) $(HEADERS) tests/ntcheck.c
+	@mkdir -p $(@D)
+	$(CC) $(HOSTFLAGS) -o $@ $(ENGINE) tests/ntcheck.c
+
+build/nice/ntcheck.bin: $(ENGINE) $(HEADERS) tests/ntcheck.c $(TOOLCHAIN)
+	@mkdir -p $(@D)
+	$(NICEBUILD) $(NICEFLAGS) -D NTCHECK_POSITIONS=$(NTCHECK_NICE) -o $@ $(ENGINE) tests/ntcheck.c
+
 build/host/ffosuite: $(ENGINE) $(HEADERS) tests/ffosuite.c
 	@mkdir -p $(@D)
 	$(CC) $(HOSTFLAGS) -o $@ $(ENGINE) tests/ffosuite.c
@@ -186,15 +206,17 @@ $(FFO1_NICE): $(FFO1)
 
 test: host-test nice-test
 
-host-test: build/host/othello_text build/host/randgames build/host/solvecheck build/host/ffosuite $(FFO1)
+host-test: build/host/othello_text build/host/randgames build/host/solvecheck build/host/ffosuite build/host/ntcheck $(FFO1)
 	@tools/runtest.sh host_text text tests/text.input host build/host/othello_text
 	@tools/runtest.sh host_search search tests/search.input host build/host/othello_text
 	@tools/runtest.sh host_perft9 perft9 tests/perft9.input host build/host/othello_text
 	@tools/runtest.sh host_randgames randgames$(RANDGAMES_HOST) /dev/null host build/host/randgames $(RANDGAMES_HOST)
 	@tools/runtest.sh host_solvecheck solvecheck$(word 2,$(SOLVECHECK_HOST)) /dev/null host build/host/solvecheck $(SOLVECHECK_HOST)
 	@tools/runtest.sh host_ffo1 ffo1 $(FFO1) host build/host/ffosuite
+	@tools/runtest.sh host_ntcheck ntcheck$(NTCHECK_HOST) /dev/null host build/host/ntcheck $(NTCHECK_HOST)
 
 nice-test: build/nice/othello_text.bin build/nice/randgames.bin build/nice/solvecheck.bin build/nice/ffosuite.bin \
+           build/nice/ntcheck.bin \
            build/test/mon_othello_text.bin $(FFO1_NICE) | $(NICEEMU)
 	@tools/runtest.sh nice_text text tests/text.input nice build/nice/othello_text.bin
 	@tools/runtest.sh nice_search search tests/search.input nice build/nice/othello_text.bin
@@ -202,6 +224,7 @@ nice-test: build/nice/othello_text.bin build/nice/randgames.bin build/nice/solve
 	@tools/runtest.sh nice_randgames randgames$(RANDGAMES_NICE) /dev/null nice build/nice/randgames.bin
 	@tools/runtest.sh nice_solvecheck solvecheck$(word 2,$(SOLVECHECK_NICE)) /dev/null nice build/nice/solvecheck.bin
 	@tools/runtest.sh nice_ffo1 ffo1-3 $(FFO1_NICE) nice build/nice/ffosuite.bin
+	@tools/runtest.sh nice_ntcheck ntcheck$(NTCHECK_NICE) /dev/null nice build/nice/ntcheck.bin
 	@tools/runtest.sh mega65_text text tests/text.input nice build/test/mon_othello_text.bin
 	@tools/runtest.sh mega65_search search tests/search.input nice build/test/mon_othello_text.bin
 	@tools/runtest.sh mega65_perft7 perft7 tests/perft7.input nice build/test/mon_othello_text.bin

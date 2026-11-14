@@ -15,12 +15,15 @@
  * perft
  * At depth 1 it counts the moves, without making them. With
  * CHECK_STATE, it checks the moves and the flips of every node
- * against the plain move generator of check.c.
+ * against the plain move generator of check.c, and keeps the indexes
+ * of the N-tuple evaluation up to date, and checks them against those
+ * from scratch. black is whether own is black.
  ***************************************************************/
-static uint64_t perft(bb_t own, bb_t opp, int depth)
+static uint64_t perft(bb_t own, bb_t opp, int depth, int black)
 {
 #ifdef CHECK_STATE
     assert(moves_consistent(own, opp));
+    assert(nt_consistent(black ? own : opp, black ? opp : own));
 #endif
     bb_t moves = gen_moves(own, opp);
 
@@ -28,7 +31,7 @@ static uint64_t perft(bb_t own, bb_t opp, int depth)
     {
         if (!gen_moves(opp, own))
             return 1;                    // The end of the game
-        return depth > 1 ? perft(opp, own, depth - 1) : 1;   // A pass
+        return depth > 1 ? perft(opp, own, depth - 1, !black) : 1;   // A pass
     }
     if (depth == 1)
         return (uint64_t) popcount(moves);
@@ -39,7 +42,13 @@ static uint64_t perft(bb_t own, bb_t opp, int depth)
         int sq = lowest_square(moves);
         moves &= moves - 1;
         bb_t flips = gen_flips(own, opp, sq);
-        count += perft(opp & ~flips, own | flips | BB(sq), depth - 1);
+#ifdef CHECK_STATE
+        nt_play(sq, flips, black);
+#endif
+        count += perft(opp & ~flips, own | flips | BB(sq), depth - 1, !black);
+#ifdef CHECK_STATE
+        nt_unplay(sq, flips, black);
+#endif
     }
     return count;
 } // end of perft
@@ -48,5 +57,5 @@ uint64_t engine_perft(int depth)
 {
     if (depth <= 0)
         return 1;
-    return perft(board.own, board.opp, depth);
+    return perft(board.own, board.opp, depth, board.side == ENGINE_BLACK);
 } // end of engine_perft

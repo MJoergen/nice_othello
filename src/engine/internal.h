@@ -78,6 +78,62 @@ int eval_static(bb_t own, bb_t opp);
 int final_score(bb_t own, bb_t opp);
 
 /***************************************************************
+ * ntuple.c: the N-tuple evaluation
+ ***************************************************************/
+
+// The patterns: bit p of NT_MASK uses nt_defs[p]. NT_STAGES stages
+// of the game, by the number of discs, have weights of their own.
+#ifndef NT_MASK
+#define NT_MASK 0xF98      // row1, row2, and the diagonals
+#endif
+#ifndef NT_STAGES
+#define NT_STAGES 2
+#endif
+
+#define NT_PATTERNS     12
+#define NT_MAX_SQUARES  10
+#define NT_MAX_PLACES   96     // 92 with all the patterns
+#define NT_MAX_ENTRIES  704    // 696 with all the patterns
+
+// The weights of a stage: 3^n for each pattern of NT_MASK, and the
+// weight of having the move.
+#define NT_BIT(p) ((NT_MASK >> (p)) & 1)
+#define NT_STAGE_SIZE (NT_BIT(0) * 19683 + (NT_BIT(1) + NT_BIT(2)) * 59049        \
+    + (NT_BIT(3) + NT_BIT(4) + NT_BIT(5) + NT_BIT(6) + NT_BIT(7)) * 6561            \
+    + NT_BIT(8) * 2187 + NT_BIT(9) * 729 + NT_BIT(10) * 243 + NT_BIT(11) * 81 + 1)
+
+typedef struct
+{
+    const char *name;
+    int n;
+    uint8_t squares[NT_MAX_SQUARES];
+} nt_def_t;
+
+extern const nt_def_t nt_defs[NT_PATTERNS];
+extern int nt_places;
+extern uint8_t nt_place_pattern[NT_MAX_PLACES];
+extern uint8_t nt_place_squares[NT_MAX_PLACES][NT_MAX_SQUARES];
+extern uint16_t nt_index[NT_MAX_PLACES];
+
+void nt_init(void);
+int nt_place_index(int q, bb_t black, bb_t white);  // From scratch
+void nt_compute(bb_t black, bb_t white);            // All of nt_index
+int nt_consistent(bb_t black, bb_t white);          // nt_index is right
+void nt_play(int sq, bb_t flips, int black);
+void nt_unplay(int sq, bb_t flips, int black);
+int nt_stage(int discs);
+// The value for the side to move, black or not, from nt_index.
+int nt_eval(int black, int discs);
+
+// The evaluation in use, ENGINE_EVAL_HAND or ENGINE_EVAL_NTUPLE.
+extern int eval_kind;
+
+// The value of the position for own, to move, by the evaluation in
+// use. black is whether own is black, and nt_index must be that of
+// the position for the N-tuple evaluation.
+int evaluate(bb_t own, bb_t opp, int black);
+
+/***************************************************************
  * tt.c: the transposition table, of 1 << TT_BITS entries.
  ***************************************************************/
 #ifndef TT_BITS

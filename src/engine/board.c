@@ -11,6 +11,15 @@ board_t board;
 board_t history[HISTORY_MAX];
 int history_len;
 
+// The indexes of the N-tuple evaluation, of the position: set from
+// scratch here, and kept up to date by engine_make_move.
+static void index_board(void)
+{
+    nt_init();
+    int black = board.side == ENGINE_BLACK;
+    nt_compute(black ? board.own : board.opp, black ? board.opp : board.own);
+} // end of index_board
+
 // d4 and e5 white, d5 and e4 black; black to move.
 #define START_WHITE (BB(27) | BB(36))
 #define START_BLACK (BB(28) | BB(35))
@@ -22,6 +31,7 @@ void engine_new_game(void)
     board.side = ENGINE_BLACK;
     history_len = 0;
     tt_clear();
+    index_board();
 } // end of engine_new_game
 
 int engine_set_position(const char *s)
@@ -55,6 +65,7 @@ int engine_set_position(const char *s)
     board.own = side == ENGINE_BLACK ? black : white;
     board.opp = side == ENGINE_BLACK ? white : black;
     history_len = 0;
+    index_board();
     return 1;
 } // end of engine_set_position
 
@@ -136,6 +147,8 @@ int engine_make_move(int move)
 
     assert(history_len < HISTORY_MAX);
     history[history_len++] = board;
+    if (move != ENGINE_PASS)
+        nt_play(move, flips, board.side == ENGINE_BLACK);
 
     bb_t own = board.own | flips | (move == ENGINE_PASS ? 0 : BB(move));
     board.own = board.opp & ~flips;
@@ -149,6 +162,7 @@ int engine_undo(void)
     if (!history_len)
         return 0;
     board = history[--history_len];
+    index_board();
     return 1;
 } // end of engine_undo
 

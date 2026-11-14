@@ -17,6 +17,7 @@ and for the host.
 | `search.c` | Iterative deepening, and the search of the middle game: PVS with the transposition table, moves ordered by the opponent's mobility. The principal variation. |
 | `solve.c` | The exact solver of the end of the game: fastest first, then parity near the end. |
 | `tt.c` | The transposition table, keyed by a hash of the two bitboards. |
+| `ntuple.c` | The N-tuple evaluation: the patterns, their places under the symmetries of the board, the indexes kept up to date by `nt_play` and `nt_unplay`, and the sum of the weights. |
 
 The position is kept from the side to move: `own` its discs, `opp` the
 opponent's. A move swaps them. The squares are a1 = 0 to h8 = 63, row
@@ -26,6 +27,13 @@ Scores are in hundredths of a disc, for the side to move; the end of
 the game is 100 times the disc difference, with the empty squares to
 the winner. The solver works in whole discs. A node of the search
 whose depth reaches the end of the game is handed to the solver.
+
+The evaluation is the one written by hand (`eval.c`) or the N-tuple
+network (`ntuple.c`), chosen by `engine_set_eval`. The indexes of the
+N-tuple network are of the whole board, from black's view: `board.c`
+keeps those of the game, and the search updates them around each move
+when the N-tuple evaluation is in use. The patterns and the stages are
+chosen at build time (`NT_MASK`, `NT_STAGES`).
 
 ## src/platform/
 
@@ -39,5 +47,5 @@ whose depth reaches the end of the game is handed to the solver.
 
 | File | What it does |
 |---|---|
-| `text.c` | The text front end on the console: set up positions, make and take back moves, search (`go`), solve, perft. |
+| `text.c` | The text front end on the console: set up positions, make and take back moves, search (`go`), solve, choose the evaluation, perft. |
 | `version.h` | The version of the build, which the Makefile writes into `build/gen/version.c`. |

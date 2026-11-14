@@ -2,6 +2,32 @@
 
 Investigations made during the development (doc/HISTORY.md), newest first.
 
+## 2026-11-14: The cost of the N-tuple evaluation on NICE, at Stage 3
+
+The text front end in niceemu, `go depth 6` from the start, with the
+patterns of the tests (`NT_MASK` 0xF98: row1, row2, and the 5
+diagonals, 52 places), in steps a call (nice_chess's `tools/prof.c`):
+
+| Function | Steps |
+|---|---:|
+| `nt_eval` | 644 |
+| `nt_play` | 182 |
+| `nt_unplay` | 182 |
+| `eval_static`, the hand-written one | 257 |
+| `gen_moves`, which it calls twice | 435 |
+| `nt_init`, once | 288999 |
+
+So a leaf of the N-tuple evaluation costs about 644 steps, against
+about 1130 for the hand-written one, and each move of the search 364
+more for the indexes. `nt_eval` is about 12 steps a place; with all the
+patterns, 92 places, it would be about 1150. The weights were 0, so the
+two searches visited different trees (959 and 541 nodes), and their
+totals do not compare.
+
+The MEGA65 build needs a third page of linear memory for the weights,
+45848 of them, 92 KB: the build needs 66038 words of the 94176, with
+the table's 16384 and the weights' 22924.
+
 ## 2026-11-14: The speed of the search and the solver, at Stage 2
 
 In niceemu, the same searches as on the host, node for node

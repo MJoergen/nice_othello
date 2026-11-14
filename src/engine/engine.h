@@ -134,4 +134,19 @@ int engine_search(const engine_limits_t *limits, engine_info_fn info);
 // The static evaluation of the position, for the side to move.
 int engine_eval(void);
 
+/***************************************************************
+ * The evaluation
+ ***************************************************************/
+
+#define ENGINE_EVAL_HAND   0   // Written by hand (eval.c), the default
+#define ENGINE_EVAL_NTUPLE 1   // The N-tuple network (ntuple.c)
+
+// Sets the evaluation of engine_eval and engine_search, and clears the
+// transposition table, whose scores were of the other one.
+void engine_set_eval(int kind);
+
+// The weights of the N-tuple evaluation, which the caller may change:
+// *n of them, laid out as ntuple.c says.
+int16_t *engine_ntuple_weights(int *n);
+
 #endif // ENGINE_H

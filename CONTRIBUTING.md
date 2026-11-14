@@ -42,6 +42,13 @@ MEGA65 build after a stand-in for the monitor:
   with a few empty squares, 200 of 10 on the host and 20 of 8 in
   niceemu, and compares the score, the move, and the win, draw, or loss
   with a plain minimax.
+- `ntcheck`: `tests/ntcheck.c` sets the N-tuple weights at random, and
+  checks, on positions of random games, the indexes against those from
+  scratch, that the value of a position is that of its 8 images under
+  the symmetries of the board, that a search of depth 1 finds the best
+  of the moves each evaluated from scratch, and that a search leaves
+  the indexes as it found them. 200 positions on the host, 20 in
+  niceemu. perft and `randgames` check the indexes too.
 - `ffo1`: `tests/ffosuite.c` solves the FFO positions 1 to 19 (3 in
   niceemu), of 14 to 16 empty squares, which must give the published
   scores. `make ffo-deep` solves 20 to 38, of up to 24.

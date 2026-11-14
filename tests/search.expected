@@ -44,4 +44,11 @@ bestmove c1
 Game over: X 0, O 3, O wins
 Game over: X 62, O 2, X wins
 Game over: X 62, O 2, X wins
+eval +0.00
+info depth 1 score +0.00 nodes 4 pv d3
+info depth 2 score +0.00 nodes 14 pv d3 c3
+info depth 3 score +0.00 nodes 44 pv d3 c3 c4
+bestmove d3
+Invalid evaluation: foo
+eval +1.60
 exit 0

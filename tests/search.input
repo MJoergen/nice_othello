@@ -19,3 +19,10 @@ go depth 4
 go depth 4
 pos XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXOO X
 go
+new
+evaluation ntuple
+eval
+go depth 3
+evaluation foo
+evaluation hand
+eval

@@ -12,6 +12,9 @@
  * table, then, with 2 plies or more to go, the move that leaves the
  * opponent the fewest moves, and then by the square (square_value).
  *
+ * With the N-tuple evaluation, the indexes of ntuple.c are kept up to
+ * date around each move; the solver needs none.
+ *
  * Copyright (c) 2026 Michael Jørgensen. MIT license (see LICENSE).
  ***************************************************************/
 
@@ -47,6 +50,7 @@ uint8_t ms_square[MOVE_STACK_SIZE];
 int     ms_top;
 
 int search_stopped;
+int eval_kind = ENGINE_EVAL_HAND;
 static uint32_t nodes;
 static engine_limits_t limits;
 
@@ -79,12 +83,19 @@ void pick_best(int base, int i, int n)
 static int div_floor(int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); }
 static int div_ceil(int a, int b)  { return a >= 0 ? (a + b - 1) / b : -(-a / b); }
 
+int evaluate(bb_t own, bb_t opp, int black)
+{
+    if (eval_kind == ENGINE_EVAL_NTUPLE)
+        return nt_eval(black, popcount(own | opp));
+    return eval_static(own, opp);
+} // end of evaluate
+
 /***************************************************************
  * search
  * The value of the position for own, depth plies deep, between
- * alpha and beta, fail-soft.
+ * alpha and beta, fail-soft. black is whether own is black.
  ***************************************************************/
-static int search(bb_t own, bb_t opp, int depth, int alpha, int beta)
+static int search(bb_t own, bb_t opp, int depth, int alpha, int beta, int black)
 {
     int empties = 64 - popcount(own | opp);
     if (depth >= empties)
@@ -92,15 +103,18 @@ static int search(bb_t own, bb_t opp, int depth, int alpha, int beta)
 
     if (count_node())
         return 0;
+#ifdef CHECK_STATE
+    assert(eval_kind != ENGINE_EVAL_NTUPLE || nt_consistent(black ? own : opp, black ? opp : own));
+#endif
     if (depth == 0)
-        return eval_static(own, opp);
+        return evaluate(own, opp, black);
 
     bb_t moves = gen_moves(own, opp);
     if (!moves)
     {
         if (!gen_moves(opp, own))
             return 100 * final_score(own, opp);
-        return -search(opp, own, depth, -beta, -alpha);
+        return -search(opp, own, depth, -beta, -alpha, !black);
     }
 
     int tt_move = TT_NO_MOVE;
@@ -150,15 +164,20 @@ static int search(bb_t own, bb_t opp, int depth, int alpha, int beta)
         int sq = ms_square[base + i];
         bb_t f = ms_flips[base + i];
         bb_t child_own = opp & ~f, child_opp = own | f | BB(sq);
+        int nt = eval_kind == ENGINE_EVAL_NTUPLE;
+        if (nt)
+            nt_play(sq, f, black);
         int v;
         if (i == 0)
-            v = -search(child_own, child_opp, depth - 1, -beta, -alpha);
+            v = -search(child_own, child_opp, depth - 1, -beta, -alpha, !black);
         else
         {
-            v = -search(child_own, child_opp, depth - 1, -alpha - 1, -alpha);
+            v = -search(child_own, child_opp, depth - 1, -alpha - 1, -alpha, !black);
             if (v > alpha && v < beta && !search_stopped)
-                v = -search(child_own, child_opp, depth - 1, -beta, -alpha);
+                v = -search(child_own, child_opp, depth - 1, -beta, -alpha, !black);
         }
+        if (nt)
+            nt_unplay(sq, f, black);
         if (search_stopped)
         {
             ms_top = base;
@@ -199,6 +218,7 @@ static int root_done;   // The moves of the iteration searched so far
 static int root_search(int depth, int alpha, int beta, int *best_move)
 {
     bb_t own = board.own, opp = board.opp;
+    int black = board.side == ENGINE_BLACK;
     int best = -INF;
 
     root_done = 0;
@@ -207,15 +227,20 @@ static int root_search(int depth, int alpha, int beta, int *best_move)
         int sq = root_moves[i];
         bb_t f = gen_flips(own, opp, sq);
         bb_t child_own = opp & ~f, child_opp = own | f | BB(sq);
+        int nt = eval_kind == ENGINE_EVAL_NTUPLE;
+        if (nt)
+            nt_play(sq, f, black);
         int v;
         if (i == 0)
-            v = -search(child_own, child_opp, depth - 1, -beta, -alpha);
+            v = -search(child_own, child_opp, depth - 1, -beta, -alpha, !black);
         else
         {
-            v = -search(child_own, child_opp, depth - 1, -alpha - 1, -alpha);
+            v = -search(child_own, child_opp, depth - 1, -alpha - 1, -alpha, !black);
             if (v > alpha && v < beta && !search_stopped)
-                v = -search(child_own, child_opp, depth - 1, -beta, -alpha);
+                v = -search(child_own, child_opp, depth - 1, -beta, -alpha, !black);
         }
+        if (nt)
+            nt_unplay(sq, f, black);
         if (search_stopped)
             break;
         ++root_done;
@@ -353,5 +378,11 @@ int engine_search(const engine_limits_t *lim, engine_info_fn info_fn)
 
 int engine_eval(void)
 {
-    return eval_static(board.own, board.opp);
+    return evaluate(board.own, board.opp, board.side == ENGINE_BLACK);
 } // end of engine_eval
+
+void engine_set_eval(int kind)
+{
+    eval_kind = kind;
+    tt_clear();
+} // end of engine_set_eval

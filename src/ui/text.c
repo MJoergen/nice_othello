@@ -11,6 +11,8 @@
  *   undo            take back the last move
  *   go [LIMITS]     the engine searches, and makes its move
  *   eval            the static evaluation of the position
+ *   evaluation E    use the evaluation E: hand (the default), written
+ *                   by hand, or ntuple, the N-tuple network
  *   solve N         solve exactly at N empty squares or fewer
  *   perft N         count the leaves of the tree of moves of depth N
  *   divide N        perft N - 1 after each legal move
@@ -327,6 +329,7 @@ static void print_help(void)
            "  undo            take back the last move\n"
            "  go [LIMITS]     search and make a move: depth N, nodes N, movetime MS, wld\n"
            "  eval            the static evaluation\n"
+           "  evaluation E    use the evaluation E: hand or ntuple\n"
            "  solve N         solve exactly at N empty squares or fewer\n"
            "  perft N         count the leaves of the tree of moves of depth N\n"
            "  divide N        perft N, for each legal move\n"
@@ -385,6 +388,16 @@ int main(void)
             printf("eval ");
             print_score(engine_eval());
             printf("\n");
+        }
+        else if (!strcmp(cmd, "evaluation"))
+        {
+            char *e = next_word(&rest);
+            if (!strcmp(e, "hand"))
+                engine_set_eval(ENGINE_EVAL_HAND);
+            else if (!strcmp(e, "ntuple"))
+                engine_set_eval(ENGINE_EVAL_NTUPLE);
+            else
+                printf("Invalid evaluation: %s\n", e);
         }
         else if (!strcmp(cmd, "solve"))
         {

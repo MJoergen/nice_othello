@@ -58,6 +58,21 @@ of the text front end, the same on the host and in niceemu, node for
 node. `tools/match.py` plays the engine against random moves, and
 against itself at other limits.
 
+## Stage 3: the N-tuple evaluation (2026-11-14)
+
+`ntuple.c` has the 12 candidate patterns of the README, of which a
+build uses those of `NT_MASK`, in `NT_STAGES` stages. The weights are
+in RAM, where `engine_ntuple_weights` gives them to the caller; they
+are 0 until the trainer of Stage 4 learns them. The text front end
+chooses the evaluation with `evaluation hand|ntuple`. The hand-written
+one stays the default.
+
+The indexes are kept from black's view, so that a move changes only the
+indexes of the squares it fills and flips: a list for each square of
+its places and its power of 3 in each. The game's indexes are kept by
+`board.c`, from scratch after an undo; the search updates them around
+each move, only when the N-tuple evaluation is in use.
+
 ## Decisions
 
 1. nice_cpu is pinned to V2.0, the release nice_chess uses.
@@ -76,3 +91,15 @@ against itself at other limits.
 5. The NICE builds and the host builds of the tests have tables of the
    same size, `TT_BITS` 13 (64 KB), so that a search visits the same
    nodes on both and the tests compare their whole output.
+6. A pattern's places are the images of one place under all 8
+   symmetries of the board, but for those that repeat another in the
+   same order. A place that a symmetry maps onto itself, such as an
+   edge or the 3×3 square of a corner, is so read twice, in two orders,
+   with the same table: 92 places with all the patterns, where the
+   README counts 50. The value of a position is then that of its
+   images, with no tables to fold the indexes of symmetric states
+   together, at the cost of the extra places. Folding instead is for
+   Stage 5 to weigh.
+7. The value of a position is that of black, negated for white, plus
+   the weight of having the move: one table for both colours, from
+   black's view.

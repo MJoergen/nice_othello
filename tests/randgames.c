@@ -1,8 +1,9 @@
 /***************************************************************
  * randgames.c: plays games of random moves to their end, and checks
  * at every position the bitboard move generator against the plain
- * one of check.c, the moves through the engine's interface, and that
- * undo takes the game back to its start.
+ * one of check.c, the moves through the engine's interface, the
+ * indexes of the N-tuple evaluation against those from scratch, and
+ * that undo takes the game back to its start, indexes and all.
  *
  * Perft from the start reaches only the first moves of a game; these
  * games reach the edges, the corners, the passes, and full boards.
@@ -31,6 +32,13 @@ static uint32_t next_random(void)
 {
     seed = seed * 1103515245u + 12345u;
     return seed >> 16;
+}
+
+// Whether the indexes of the N-tuple evaluation are those of the board
+static int indexes_right(void)
+{
+    int black = board.side == ENGINE_BLACK;
+    return nt_consistent(black ? board.own : board.opp, black ? board.opp : board.own);
 }
 
 int main(int argc, char **argv)
@@ -94,7 +102,7 @@ int main(int argc, char **argv)
             engine_make_move(move);
             ++len;
             bb_t placed = move == ENGINE_PASS ? 0 : BB(move);
-            if (board.opp != (own | flips | placed) || board.own != (opp & ~flips))
+            if (board.opp != (own | flips | placed) || board.own != (opp & ~flips) || !indexes_right())
             {
                 printf("The move went wrong in game %d\n", g);
                 ++failures;
@@ -107,10 +115,14 @@ int main(int argc, char **argv)
         black_sum += black;
         white_sum += white;
 
+        int undo_ok = 1;
         while (len--)
+        {
             engine_undo();
+            undo_ok &= indexes_right();
+        }
         engine_get_position(end);
-        if (strcmp(start, end) || engine_undo())
+        if (strcmp(start, end) || engine_undo() || !undo_ok)
         {
             printf("Undo did not go back to the start in game %d\n", g);
             ++failures;

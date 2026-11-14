@@ -12,7 +12,7 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
   poll) and `src/ui/` (`text.c`) are around it.
 - `tests/`: the inputs of the tests, `*.grep` (the lines of the output
   that are compared) and `*.expected`, and the test programs
-  (`randgames.c`, `solvecheck.c`, `ffosuite.c`). `tools/runtest.sh`
+  (`randgames.c`, `solvecheck.c`, `ffosuite.c`, `ntcheck.c`). `tools/runtest.sh`
   runs one test.
 - `tools/`: `runtest.sh`; `size.py`, which checks the size of the
   MEGA65 build against the budget (from nice_chess); `match.py`, which
@@ -65,8 +65,12 @@ asks.
   expected file from a NICE run alone. A change of the search changes
   the node counts of `search.expected`; check that the moves and scores
   still make sense before taking the new ones.
-- The NICE builds and the host builds of the tests share `TT_BITS`, so
-  that their searches agree node for node.
+- The NICE builds and the host builds of the tests share `TT_BITS` and
+  the N-tuple patterns and stages (`NT_FLAGS`), so that their searches
+  agree node for node.
+- The host build's `CHECK_STATE` checks the N-tuple indexes against
+  those from scratch at every node of perft, and of the search when the
+  N-tuple evaluation is in use.
 - Pins (`NICE_CPU_TAG`, the SHA-256 sum) are raised by hand,
   deliberately, not as a side effect.
 - The docs are written in short, plain, factual sentences, and say what

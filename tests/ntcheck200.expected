@@ -1,0 +1,10 @@
+pattern row1 squares 8 places 8
+pattern row2 squares 8 places 8
+pattern diag8 squares 8 places 4
+pattern diag7 squares 7 places 8
+pattern diag6 squares 6 places 8
+pattern diag5 squares 5 places 8
+pattern diag4 squares 4 places 8
+places 52 weights 45848 stages 2
+positions 200 values -83834 nodes 230651 failures 0
+exit 0
