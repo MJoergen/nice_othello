@@ -1,0 +1,21 @@
+solve 14
+eval
+go depth 6
+go nodes 500
+eval
+go 2 depth
+go depth 99
+go movetime x
+solve x
+pos --XXXXX--OOOXX-O-OOOXXOX-OXOXOXXOXXXOXXX--XOXOXX-XXXOOO--OOOOO-- X
+eval
+go depth 3
+undo
+go
+undo
+go wld
+pos OX-------------------------------------------------------------- X
+go depth 4
+go depth 4
+pos XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXOO X
+go

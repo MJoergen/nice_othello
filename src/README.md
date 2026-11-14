@@ -13,16 +13,25 @@ and for the host.
 | `movegen.c` | The legal moves and the flips of a move, for all directions at once, by shifts and masks of the bitboards; popcount. |
 | `perft.c` | Perft, the count of the leaves of the tree of moves. |
 | `check.c` | A plain move generator, square by square, to test `movegen.c` against. |
+| `eval.c` | The evaluation written by hand: mobility, potential mobility, corners, X- and C-squares. The baseline for the learned one. |
+| `search.c` | Iterative deepening, and the search of the middle game: PVS with the transposition table, moves ordered by the opponent's mobility. The principal variation. |
+| `solve.c` | The exact solver of the end of the game: fastest first, then parity near the end. |
+| `tt.c` | The transposition table, keyed by a hash of the two bitboards. |
 
 The position is kept from the side to move: `own` its discs, `opp` the
 opponent's. A move swaps them. The squares are a1 = 0 to h8 = 63, row
 by row, row 1 at the top.
 
+Scores are in hundredths of a disc, for the side to move; the end of
+the game is 100 times the disc difference, with the empty squares to
+the winner. The solver works in whole discs. A node of the search
+whose depth reaches the end of the game is handed to the solver.
+
 ## src/platform/
 
 | File | What it does |
 |---|---|
-| `platform.h` | What a front end needs from the machine: the clock, and the console's input. |
+| `platform.h` | What a front end needs from the machine: the clock, the console's input, and defaults such as the time of a move and the empty squares at which to solve. |
 | `nice.c` | For NICE: niceemu, or the MEGA65 under the monitor. |
 | `host.c` | For a PC. |
 
@@ -30,5 +39,5 @@ by row, row 1 at the top.
 
 | File | What it does |
 |---|---|
-| `text.c` | The text front end on the console: set up positions, make and take back moves, perft. |
+| `text.c` | The text front end on the console: set up positions, make and take back moves, search (`go`), solve, perft. |
 | `version.h` | The version of the build, which the Makefile writes into `build/gen/version.c`. |

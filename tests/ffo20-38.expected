@@ -1,0 +1,21 @@
+position 1: h5 +6 ok
+position 2: g5 +0 ok
+position 3: g8 +2 ok
+position 4: a2 +4 ok
+position 5: c3 +0 ok
+position 6: a5 +0 ok
+position 7: d8 +0 ok
+position 8: b7 -2 ok
+position 9: e1 +0 ok
+position 10: g2 +10 ok
+position 11: g3 +0 ok
+position 12: g6 -2 ok
+position 13: g3 -4 ok
+position 14: e7 -8 ok
+position 15: c2 -2 ok
+position 16: c7 +0 ok
+position 17: b7 +0 ok
+position 18: g2 -20 ok
+position 19: b2 +4 ok
+positions 19 failures 0
+exit 0

@@ -12,9 +12,12 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
   poll) and `src/ui/` (`text.c`) are around it.
 - `tests/`: the inputs of the tests, `*.grep` (the lines of the output
   that are compared) and `*.expected`, and the test programs
-  (`randgames.c`). `tools/runtest.sh` runs one test.
-- `tools/`: `runtest.sh`, and `size.py`, which checks the size of the
-  MEGA65 build against the budget (from nice_chess).
+  (`randgames.c`, `solvecheck.c`, `ffosuite.c`). `tools/runtest.sh`
+  runs one test.
+- `tools/`: `runtest.sh`; `size.py`, which checks the size of the
+  MEGA65 build against the budget (from nice_chess); `match.py`, which
+  plays two programs, or one and random moves, through the text front
+  end.
 - `doc/HISTORY.md`: how the engine was built, by stages, and the
   decisions, after the fact. Plans and open items are GitHub issues,
   not files or TODO comments.
@@ -31,10 +34,12 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
 ## Commands
 
     make                # help: the targets
-    make deps           # nice_cpu and niceemu into deps/
+    make deps           # nice_cpu, niceemu, and the FFO positions into deps/
     make all            # build everything
     make test           # host and niceemu tests; run after every change
     make perft-deep     # perft 11 on the host
+    make ffo-deep       # FFO 20-38 on the host (a minute)
+    make match-random   # depth 4 against random moves
     make size           # the MEGA65 build against the 92K-word budget
 
 `make board-text` needs `ETH=IP` or `PORT=DEVICE` and a NiceMonMEGA65
@@ -55,8 +60,13 @@ asks.
   steps a second (nice_chess's figure, until measured for this program).
 - Change a `*.expected` file only when the output changed on purpose,
   and say how in the commit message. The expected counts of perft are
-  the published ones (OEIS A124004), and those of `randgames` in
-  niceemu are the host's: never make them from a NICE run alone.
+  the published ones (OEIS A124004), the scores of the FFO positions
+  are Edax's, and the outputs in niceemu are the host's: never make an
+  expected file from a NICE run alone. A change of the search changes
+  the node counts of `search.expected`; check that the moves and scores
+  still make sense before taking the new ones.
+- The NICE builds and the host builds of the tests share `TT_BITS`, so
+  that their searches agree node for node.
 - Pins (`NICE_CPU_TAG`, the SHA-256 sum) are raised by hand,
   deliberately, not as a side effect.
 - The docs are written in short, plain, factual sentences, and say what

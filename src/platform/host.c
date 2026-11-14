@@ -21,6 +21,11 @@ uint32_t platform_move_time(void)
     return 1000000; // 1 second
 }
 
+int platform_solve_empties(void)
+{
+    return 20;
+}
+
 uint32_t platform_clock_second(void)
 {
     return 1000000;

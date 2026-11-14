@@ -45,6 +45,12 @@ uint32_t platform_move_time(void)
     return platform_on_board() ? 5000000 : 300000000;
 }
 
+// To be measured (LOG.md).
+int platform_solve_empties(void)
+{
+    return 14;
+}
+
 // The MEGA65 runs about 54 million steps a second of nice_chess (to be
 // measured for this program).
 uint32_t platform_clock_second(void)

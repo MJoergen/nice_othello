@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+"""match.py - plays games of Othello between two players.
+
+Usage: match.py [options] PLAYER1 PLAYER2
+
+A player is a command that runs the text front end, such as
+build/host/othello_fast, or the word random, which plays a legal move
+at random. For each move, match.py sends the program the position
+with pos, then go with its limits (--go1, --go2), and reads its
+bestmove. It keeps the game itself, by its own rules of the game, so a
+move that is not legal loses the game for the program that made it.
+Passes are made by match.py, without asking.
+
+Each opening is --plies random moves from the start, and is
+played twice, with each player black once. The openings come from
+--seed, so a run plays the same openings every time.
+
+It prints each game and the score of PLAYER1: 1 for a win, 1/2 for a
+draw. With --min-score, it exits with 1 if PLAYER1 scored less.
+"""
+
+from __future__ import annotations
+
+import argparse
+import random
+import shlex
+import subprocess
+import sys
+
+DIRS = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+
+
+class Board:
+    """A position: squares 0 to 63, a1 to h8 row by row; X black, O white."""
+
+    def __init__(self) -> None:
+        self.sq = ['-'] * 64
+        self.sq[27] = self.sq[36] = 'O'
+        self.sq[28] = self.sq[35] = 'X'
+        self.side = 'X'
+
+    @staticmethod
+    def other(side: str) -> str:
+        return 'O' if side == 'X' else 'X'
+
+    def flips(self, s: int, side: str) -> list[int]:
+        if self.sq[s] != '-':
+            return []
+        opp = self.other(side)
+        result = []
+        for dc, dr in DIRS:
+            run = []
+            c, r = s % 8 + dc, s // 8 + dr
+            while 0 <= c < 8 and 0 <= r < 8 and self.sq[r * 8 + c] == opp:
+                run.append(r * 8 + c)
+                c, r = c + dc, r + dr
+            if run and 0 <= c < 8 and 0 <= r < 8 and self.sq[r * 8 + c] == side:
+                result += run
+        return result
+
+    def moves(self, side: str | None = None) -> list[int]:
+        side = side or self.side
+        return [s for s in range(64) if self.flips(s, side)]
+
+    def play(self, s: int) -> None:
+        f = self.flips(s, self.side)
+        assert f
+        for t in f + [s]:
+            self.sq[t] = self.side
+        self.side = self.other(self.side)
+
+    def pass_move(self) -> None:
+        self.side = self.other(self.side)
+
+    def over(self) -> bool:
+        return not self.moves('X') and not self.moves('O')
+
+    def text(self) -> str:
+        return ''.join(self.sq) + ' ' + self.side
+
+    def count(self) -> tuple[int, int]:
+        return self.sq.count('X'), self.sq.count('O')
+
+
+def name(s: int) -> str:
+    return 'abcdefgh'[s % 8] + str(s // 8 + 1)
+
+
+def parse(text: str) -> int | None:
+    text = text.strip().lower()
+    if len(text) != 2 or text[0] not in 'abcdefgh' or text[1] not in '12345678':
+        return None
+    return (int(text[1]) - 1) * 8 + 'abcdefgh'.index(text[0])
+
+
+class Program:
+    """The text front end of a program, run as a child process."""
+
+    def __init__(self, command: str, go: str) -> None:
+        self.go = go
+        self.proc = subprocess.Popen(shlex.split(command), stdin=subprocess.PIPE,
+                                     stdout=subprocess.PIPE, text=True, bufsize=1)
+
+    def move(self, board: Board) -> str:
+        assert self.proc.stdin and self.proc.stdout
+        self.proc.stdin.write(f'pos {board.text()}\n{self.go}\n')
+        self.proc.stdin.flush()
+        while True:
+            line = self.proc.stdout.readline()
+            if not line:
+                return '(no answer)'
+            line = line.lstrip('> ')
+            if line.startswith('bestmove '):
+                return line.split()[1]
+
+    def close(self) -> None:
+        assert self.proc.stdin
+        try:
+            self.proc.stdin.write('quit\n')
+            self.proc.stdin.close()
+        except BrokenPipeError:
+            pass
+        self.proc.wait()
+
+
+class RandomPlayer:
+    def __init__(self, seed: int) -> None:
+        self.rng = random.Random(seed)
+
+    def move(self, board: Board) -> str:
+        return name(self.rng.choice(board.moves()))
+
+    def close(self) -> None:
+        pass
+
+
+def make_player(spec: str, go: str, seed: int):
+    return RandomPlayer(seed) if spec == 'random' else Program(spec, go)
+
+
+def opening(rng: random.Random, plies: int) -> Board:
+    """A random opening of plies moves, in which neither side passes."""
+    while True:
+        board = Board()
+        for _ in range(plies):
+            moves = board.moves()
+            if not moves:
+                break
+            board.play(rng.choice(moves))
+        else:
+            if board.moves():
+                return board
+
+
+def play(black, white, board: Board) -> tuple[int, int, list[str], str]:
+    """Plays the game from board. Returns the discs of black and white,
+    the moves, and why it ended, if not by the rules."""
+    players = {'X': black, 'O': white}
+    moves = []
+    while not board.over():
+        if not board.moves():
+            board.pass_move()
+            moves.append('pass')
+            continue
+        answer = players[board.side].move(board)
+        s = parse(answer)
+        if s is None or s not in board.moves():
+            loser = board.side
+            note = f'{"black" if loser == "X" else "white"} played {answer!r}, not legal'
+            return (0, 64, moves, note) if loser == 'X' else (64, 0, moves, note)
+        board.play(s)
+        moves.append(name(s))
+    b, w = board.count()
+    return b, w, moves, ''
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
+    ap.add_argument('player1')
+    ap.add_argument('player2')
+    ap.add_argument('--go1', default='go depth 4', help='the go command of PLAYER1')
+    ap.add_argument('--go2', default='go depth 4', help='the go command of PLAYER2')
+    ap.add_argument('--openings', type=int, default=10, help='the number of openings, each played twice')
+    ap.add_argument('--plies', type=int, default=6, help='the random moves of an opening')
+    ap.add_argument('--seed', type=int, default=1)
+    ap.add_argument('--min-score', type=float, help='the least score of PLAYER1 to pass')
+    args = ap.parse_args()
+
+    rng = random.Random(args.seed)
+    p1 = make_player(args.player1, args.go1, args.seed + 1)
+    p2 = make_player(args.player2, args.go2, args.seed + 2)
+    score = 0.0
+    games = 0
+    discs = 0
+    try:
+        for i in range(args.openings):
+            start = opening(rng, args.plies)
+            for p1_black in (True, False):
+                board = Board()
+                board.sq, board.side = list(start.sq), start.side
+                black, white = (p1, p2) if p1_black else (p2, p1)
+                b, w, moves, note = play(black, white, board)
+                mine, theirs = (b, w) if p1_black else (w, b)
+                score += 1 if mine > theirs else 0.5 if mine == theirs else 0
+                discs += mine - theirs
+                games += 1
+                print(f'game {games}: player1 {"black" if p1_black else "white"}, '
+                      f'X {b} O {w}, player1 {mine - theirs:+d}'
+                      + (f' ({note})' if note else ''))
+                print(f'  {start.text()} {" ".join(moves)}')
+                sys.stdout.flush()
+    finally:
+        p1.close()
+        p2.close()
+
+    print(f'score {score:g}/{games}, discs {discs:+d}')
+    if args.min_score is not None and score < args.min_score:
+        print(f'FAIL: below {args.min_score:g}')
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

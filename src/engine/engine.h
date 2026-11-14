@@ -32,12 +32,16 @@
 // side to move, X or O. The format of Edax's and NBoard's positions.
 #define ENGINE_POS_LEN 66     // Without the ending 0
 
+// A new game, from the start, and forgets what earlier searches
+// learned (the transposition table).
 void engine_new_game(void);
 
 // Sets up the position of the text s (ENGINE_POS_LEN). It also takes
 // lower case, '.' for an empty square, and '*' for a black disc.
-// Returns 0, and changes nothing, if s is not a position. The history
-// of the game is cleared.
+// What follows the position, if anything, must start with a space, a
+// tab, a newline, or ';', as in the .obf files of Edax. Returns 0, and
+// changes nothing, if s is not a position. The history of the game is
+// cleared.
 int engine_set_position(const char *s);
 
 // Writes the position into buf, ENGINE_POS_LEN + 1 characters.
@@ -71,5 +75,63 @@ void engine_move_name(int move, char *buf);
 // position. A pass counts as a move. A position at the end of the
 // game, before depth is reached, counts as one leaf.
 uint64_t engine_perft(int depth);
+
+/***************************************************************
+ * The search
+ *
+ * Scores are for the side to move, in hundredths of a disc. The end
+ * of the game scores 100 times the final disc difference, with the
+ * empty squares to the winner, as in the rules of the World Othello
+ * Federation.
+ ***************************************************************/
+
+// The longest principal variation that engine_info_t holds.
+#define ENGINE_MAX_PV 24
+
+// What limits a search. A field of 0 sets no limit. A search that a
+// limit stops still returns a legal move: the best of the last
+// iteration, or of the one it stopped in, once that has searched the
+// move that was best before.
+typedef struct
+{
+    int      depth;       // The deepest iteration, in moves
+    uint32_t nodes;       // The most nodes to visit
+    int    (*stop)(void); // Called every 1024 nodes; nonzero stops the search
+    // With this many empty squares or fewer, the search solves the
+    // position exactly, after a few iterations to order the moves.
+    // Without it, it reaches the end only when an iteration does.
+    int      solve;
+    int      wld;         // Solve for win, draw, or loss only
+} engine_limits_t;
+
+#define ENGINE_INEXACT 0  // The kinds of score of engine_info_t
+#define ENGINE_EXACT   1  // The final disc difference
+#define ENGINE_WLD     2  // Only its sign: win, draw, or loss
+
+// What the search found in an iteration.
+typedef struct
+{
+    int      depth;
+    int      score;
+    int      exact;       // ENGINE_INEXACT, ENGINE_EXACT, or ENGINE_WLD
+    uint32_t nodes;       // From the start of the search
+    int      pv_len;
+    int      pv[ENGINE_MAX_PV];  // The principal variation, from the root
+} engine_info_t;
+
+// Called by engine_search after each iteration that it completes, and
+// after one that a limit cut short, once it has a move, so that the
+// last call's pv[0] is the move returned. A nonzero return stops the
+// search.
+typedef int (*engine_info_fn)(const engine_info_t *info);
+
+// Searches the position by iterative deepening, until a limit is
+// reached, and returns the best move: ENGINE_PASS if the side to move
+// must pass, and ENGINE_NO_MOVE at the end of the game, without a
+// search. info may be NULL. The position is unchanged afterwards.
+int engine_search(const engine_limits_t *limits, engine_info_fn info);
+
+// The static evaluation of the position, for the side to move.
+int engine_eval(void);
 
 #endif // ENGINE_H

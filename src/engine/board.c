@@ -21,6 +21,7 @@ void engine_new_game(void)
     board.opp = START_WHITE;
     board.side = ENGINE_BLACK;
     history_len = 0;
+    tt_clear();
 } // end of engine_new_game
 
 int engine_set_position(const char *s)
@@ -47,7 +48,7 @@ int engine_set_position(const char *s)
     case 'O': case 'o':           side = ENGINE_WHITE; break;
     default: return 0;
     }
-    if (s[66] != '\0' && s[66] != ' ' && s[66] != '\t')
+    if (s[66] != '\0' && s[66] != ' ' && s[66] != '\t' && s[66] != '\n' && s[66] != ';')
         return 0;
 
     board.side = side;

@@ -17,5 +17,9 @@ jobs:
         run: make test
       - name: Perft to depth 11
         run: make perft-deep
+      - name: FFO positions 20 to 38
+        run: make ffo-deep
+      - name: Against random moves
+        run: make match-random
       - name: Size
         run: make size

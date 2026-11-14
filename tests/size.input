@@ -1,2 +1,5 @@
 perft 6
+go depth 6
+pos --XXXXX--OOOXX-O-OOOXXOX-OXOXOXXOXXXOXXX--XOXOXX-XXXOOO--OOOOO-- X
+go depth 14
 quit

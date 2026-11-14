@@ -37,6 +37,27 @@ of the 8 directions is written out by a macro. Perft is that of
 OEIS A124004: a pass counts as a move, and the end of the game as a
 leaf.
 
+## Stage 2: a baseline engine (2026-11-14)
+
+An evaluation written by hand (mobility, potential mobility, corners,
+X- and C-squares), the search of the middle game, and the exact solver
+of the end of the game. Scores are in hundredths of a disc, so that
+the solver's results, in whole discs, and the evaluation's meet on one
+scale, as the learned evaluation's will.
+
+The search is PVS by iterative deepening, with a transposition table
+and the moves ordered by the opponent's mobility after them. A node
+whose depth reaches the end of the game is solved, so a search never
+evaluates a position whose end it can see. Below a number of empty
+squares (`solve N`: 20 on the host, 14 on NICE), the search solves the
+root after 4 iterations, which order its moves.
+
+The tests are the solver against a plain minimax, on random positions;
+the FFO positions 1 to 38, against Edax's scores; and searches
+of the text front end, the same on the host and in niceemu, node for
+node. `tools/match.py` plays the engine against random moves, and
+against itself at other limits.
+
 ## Decisions
 
 1. nice_cpu is pinned to V2.0, the release nice_chess uses.
@@ -48,3 +69,10 @@ leaf.
    of random moves to their end, which reach the positions perft from
    the start does not. The counts the NICE builds must match are the
    published ones and the host's.
+4. The transposition table's key is a hash of the two bitboards,
+   computed at every node, not a Zobrist key kept up to date: a move
+   flips a varying number of discs, and the hash is two multiplications
+   by constants of 64 bits, which the translator writes inline.
+5. The NICE builds and the host builds of the tests have tables of the
+   same size, `TT_BITS` 13 (64 KB), so that a search visits the same
+   nodes on both and the tests compare their whole output.

@@ -7,6 +7,11 @@
 
 NICE_CPU_TAG    := V2.0
 NICEEMU_SHA256  := 7726cfdf6c86513d156ed75e52c287a7d88ef0c82c7bb49fa02558dde0cf7cf1
+# The FFO endgame positions, with their exact scores, from Edax's
+# problem/ at a pinned commit.
+EDAX_COMMIT     := 786421f355219ade872ce7285c1cab1eaf67836a
+FFO1_SHA256     := 898a13889df1cc83ede69b014f9df40650af6697f47cd96b4a0fb494ca404105
+FFO20_SHA256    := b522fcdfd36811d5e07b56dc531e2d6272ec370caa45638e63f134e878558c25
 
 NICE_CPU ?= deps/nice_cpu-$(NICE_CPU_TAG)
 NICEEMU  ?= deps/niceemu-$(NICE_CPU_TAG)-x86_64-linux/niceemu
@@ -27,6 +32,11 @@ BOARDLINK = $(if $(ETH),--eth $(ETH),$(if $(PORT),--port $(PORT),$(error ETH=IP 
 NICEBUILD   = $(PYTHON) $(NICE_CPU)/translator/nicebuild.py
 RELEASE_URL = https://github.com/MJoergen/nice_cpu/releases/download/$(NICE_CPU_TAG)
 NICEEMU_TGZ = niceemu-$(NICE_CPU_TAG)-x86_64-linux.tar.gz
+EDAX_RAW    = https://raw.githubusercontent.com/abulmo/edax-reversi/$(EDAX_COMMIT)/problem
+FFO1        = deps/ffo/fforum-1-19.obf
+FFO20       = deps/ffo/fforum-20-39.obf
+# The first 3 positions of FFO1, for niceemu (about 300 million steps).
+FFO1_NICE   = build/test/ffo1-3.obf
 
 # The MEGA65 gives a program under the monitor the words 0x8000 to
 # 0x1EFFF, 92K, for its image, its linear memory, and the NICE stack
@@ -40,36 +50,50 @@ HEADERS = $(wildcard src/engine/*.h) src/platform/platform.h src/ui/version.h Ma
 # The version, for the front end (VERSION).
 VERSIONC = build/gen/version.c
 
+# The transposition table: 1 << TT_BITS entries of 8 bytes. The NICE
+# builds and the host builds of the tests have the same, so that their
+# searches visit the same nodes and print the same; the fast host build
+# has a larger one.
+TT_BITS      = 13
+TT_BITS_FAST = 20
+
 # NICE: optimized for speed, without asserts, and without the bounds
 # checks of wasm's memory accesses, which the host builds' asserts and
 # CHECK_STATE stand in for. --trust-alignment leaves out the alignment
 # test of each access of 4 bytes, and --byte-windows reaches the memory
 # through the byte windows of nice_cpu's SYSTEM.md §9 (niceemu and
-# NiceMonMEGA65 from V2.0 on), as in nice_chess.
-NICEFLAGS = -O 2 -D NDEBUG --no-bounds-checks --trust-alignment --byte-windows \
-            --stack 8192 --memory 65536 --symbols --keep
+# NiceMonMEGA65 from V2.0 on), as in nice_chess. The memory is two
+# pages, 128 KB, for the table's 64 KB, the move stack, and the stack.
+NICEFLAGS = -O 2 -D NDEBUG -D TT_BITS=$(TT_BITS) --no-bounds-checks --trust-alignment --byte-windows \
+            --stack 8192 --memory 131072 --symbols --keep
 # The MEGA65: the same, built for the monitor, which loads it at 0x8000.
 MONFLAGS = $(NICEFLAGS) --monitor
 
 # The host: with asserts, and a check of the moves and the flips of
 # every node of perft against the plain generator of check.c.
-HOSTFLAGS = -O2 -W -Wall -Wextra -DCHECK_STATE
-# The host, fast: without asserts and the check.
-FASTFLAGS = -O2 -W -Wall -Wextra -DNDEBUG
+HOSTFLAGS = -O2 -W -Wall -Wextra -DCHECK_STATE -DTT_BITS=$(TT_BITS)
+# The host, fast: without asserts and the check, and with a larger table.
+FASTFLAGS = -O2 -W -Wall -Wextra -DNDEBUG -DTT_BITS=$(TT_BITS_FAST)
 
 # The random games of tests/randgames.c, on the host and in niceemu.
 RANDGAMES_HOST = 10000
 RANDGAMES_NICE = 200
+# The positions of tests/solvecheck.c, and their empty squares.
+SOLVECHECK_HOST = 200 10
+SOLVECHECK_NICE = 20 8
 
-.PHONY: FORCE help all test host-test nice-test perft-deep size deps clean distclean board-text
+
+.PHONY: FORCE help all test host-test nice-test perft-deep ffo-deep match-random size deps clean distclean board-text
 help:
 	@echo "nice_othello: an Othello engine for the NICE system"
 	@echo ""
 	@echo "  make help          show this text (the default)"
-	@echo "  make deps          fetch nice_cpu $(NICE_CPU_TAG) and niceemu $(NICE_CPU_TAG) into deps/"
+	@echo "  make deps          fetch nice_cpu $(NICE_CPU_TAG), niceemu $(NICE_CPU_TAG), and the FFO positions into deps/"
 	@echo "  make all           build the text front end, for niceemu, for the MEGA65, and for the host"
-	@echo "  make test          the tests, on the host and in niceemu"
+	@echo "  make test          the tests, on the host and in niceemu (about a minute)"
 	@echo "  make perft-deep    perft to depth 11 on the host, without the checks (a few seconds)"
+	@echo "  make ffo-deep      solve FFO positions 20 to 38 on the host (about a minute)"
+	@echo "  make match-random  the host build at depth 4 against random moves (20 games)"
 	@echo "  make size          the size of the MEGA65 build, against the board's budget"
 	@echo "  make clean         remove build/"
 	@echo "  make distclean     remove build/ and deps/"
@@ -135,22 +159,69 @@ build/host/randgames: $(ENGINE) $(HEADERS) tests/randgames.c
 	@mkdir -p $(@D)
 	$(CC) $(HOSTFLAGS) -o $@ $(ENGINE) tests/randgames.c
 
+build/host/solvecheck: $(ENGINE) $(HEADERS) tests/solvecheck.c
+	@mkdir -p $(@D)
+	$(CC) $(HOSTFLAGS) -o $@ $(ENGINE) tests/solvecheck.c
+
+build/host/ffosuite: $(ENGINE) $(HEADERS) tests/ffosuite.c
+	@mkdir -p $(@D)
+	$(CC) $(HOSTFLAGS) -o $@ $(ENGINE) tests/ffosuite.c
+
+build/host/ffosuite_fast: $(ENGINE) $(HEADERS) tests/ffosuite.c
+	@mkdir -p $(@D)
+	$(CC) $(FASTFLAGS) -o $@ $(ENGINE) tests/ffosuite.c
+
+build/nice/solvecheck.bin: $(ENGINE) $(HEADERS) tests/solvecheck.c $(TOOLCHAIN)
+	@mkdir -p $(@D)
+	$(NICEBUILD) $(NICEFLAGS) -D SOLVECHECK_POSITIONS=$(word 1,$(SOLVECHECK_NICE)) \
+	  -D SOLVECHECK_EMPTIES=$(word 2,$(SOLVECHECK_NICE)) -o $@ $(ENGINE) tests/solvecheck.c
+
+build/nice/ffosuite.bin: $(ENGINE) $(HEADERS) tests/ffosuite.c $(TOOLCHAIN)
+	@mkdir -p $(@D)
+	$(NICEBUILD) $(NICEFLAGS) -o $@ $(ENGINE) tests/ffosuite.c
+
+$(FFO1_NICE): $(FFO1)
+	@mkdir -p $(@D)
+	head -3 $< > $@
+
 test: host-test nice-test
 
-host-test: build/host/othello_text build/host/randgames
+host-test: build/host/othello_text build/host/randgames build/host/solvecheck build/host/ffosuite $(FFO1)
 	@tools/runtest.sh host_text text tests/text.input host build/host/othello_text
+	@tools/runtest.sh host_search search tests/search.input host build/host/othello_text
 	@tools/runtest.sh host_perft9 perft9 tests/perft9.input host build/host/othello_text
 	@tools/runtest.sh host_randgames randgames$(RANDGAMES_HOST) /dev/null host build/host/randgames $(RANDGAMES_HOST)
+	@tools/runtest.sh host_solvecheck solvecheck$(word 2,$(SOLVECHECK_HOST)) /dev/null host build/host/solvecheck $(SOLVECHECK_HOST)
+	@tools/runtest.sh host_ffo1 ffo1 $(FFO1) host build/host/ffosuite
 
-nice-test: build/nice/othello_text.bin build/nice/randgames.bin build/test/mon_othello_text.bin | $(NICEEMU)
+nice-test: build/nice/othello_text.bin build/nice/randgames.bin build/nice/solvecheck.bin build/nice/ffosuite.bin \
+           build/test/mon_othello_text.bin $(FFO1_NICE) | $(NICEEMU)
 	@tools/runtest.sh nice_text text tests/text.input nice build/nice/othello_text.bin
+	@tools/runtest.sh nice_search search tests/search.input nice build/nice/othello_text.bin
 	@tools/runtest.sh nice_perft7 perft7 tests/perft7.input nice build/nice/othello_text.bin
 	@tools/runtest.sh nice_randgames randgames$(RANDGAMES_NICE) /dev/null nice build/nice/randgames.bin
+	@tools/runtest.sh nice_solvecheck solvecheck$(word 2,$(SOLVECHECK_NICE)) /dev/null nice build/nice/solvecheck.bin
+	@tools/runtest.sh nice_ffo1 ffo1-3 $(FFO1_NICE) nice build/nice/ffosuite.bin
 	@tools/runtest.sh mega65_text text tests/text.input nice build/test/mon_othello_text.bin
+	@tools/runtest.sh mega65_search search tests/search.input nice build/test/mon_othello_text.bin
 	@tools/runtest.sh mega65_perft7 perft7 tests/perft7.input nice build/test/mon_othello_text.bin
 
 perft-deep: build/host/othello_fast
 	@tools/runtest.sh host_perft11 perft11 tests/perft11.input host build/host/othello_fast
+
+# FFO positions 20 to 38, about a minute; 39, of 26 empty squares,
+# takes more than a minute alone (LOG.md).
+FFO20_38 = build/test/ffo20-38.obf
+$(FFO20_38): $(FFO20)
+	@mkdir -p $(@D)
+	head -19 $< > $@
+
+ffo-deep: build/host/ffosuite_fast $(FFO20_38)
+	@tools/runtest.sh host_ffo20 ffo20-38 $(FFO20_38) host build/host/ffosuite_fast
+
+# Against random moves, at depth 4: it must win every game.
+match-random: build/host/othello_fast
+	$(PYTHON) tools/match.py --go1 "go depth 4" --min-score 20 build/host/othello_fast random
 
 size: build/mega65/othello_text.bin build/test/mon_othello_text.bin | $(NICEEMU)
 	$(PYTHON) tools/size.py --emu $(NICEEMU) --input tests/size.input --run build/test/mon_othello_text.bin \
@@ -162,7 +233,19 @@ size: build/mega65/othello_text.bin build/test/mon_othello_text.bin | $(NICEEMU)
 board-text: build/mega65/othello_text.bin
 	$(PYTHON) $(NICEMON)/tools/load.py $(BOARDLINK) --monitor $<
 
-deps: $(NICE_CPU) $(NICEEMU)
+deps: $(NICE_CPU) $(NICEEMU) $(FFO1) $(FFO20)
+
+$(FFO1):
+	@mkdir -p $(@D)
+	curl -sSfL -o $@.tmp $(EDAX_RAW)/fforum-1-19.obf
+	echo "$(FFO1_SHA256)  $@.tmp" | sha256sum -c --quiet
+	mv $@.tmp $@
+
+$(FFO20):
+	@mkdir -p $(@D)
+	curl -sSfL -o $@.tmp $(EDAX_RAW)/fforum-20-39.obf
+	echo "$(FFO20_SHA256)  $@.tmp" | sha256sum -c --quiet
+	mv $@.tmp $@
 
 deps/nice_cpu-$(NICE_CPU_TAG):
 	git clone --quiet --depth 1 --branch $(NICE_CPU_TAG) -c advice.detachedHead=false \

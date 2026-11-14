@@ -9,13 +9,27 @@
  *   moves           the legal moves
  *   move M, or M    make a move, such as d3, or pass
  *   undo            take back the last move
+ *   go [LIMITS]     the engine searches, and makes its move
+ *   eval            the static evaluation of the position
+ *   solve N         solve exactly at N empty squares or fewer
  *   perft N         count the leaves of the tree of moves of depth N
  *   divide N        perft N - 1 after each legal move
  *   help
  *   quit
  *
- * Black is X and white is O, as in Edax and NBoard. perft prints the
- * time it took, in microseconds of platform_micros: steps in niceemu.
+ * The limits of go: depth N, nodes N, movetime MS, and wld, which
+ * solves for win, draw, or loss only. A number alone is a depth. With
+ * no depth, nodes, or movetime, the search takes platform_move_time.
+ * go prints a line for each iteration of the search:
+ *
+ *   info depth D [exact|wld] score S nodes N time T pv MOVES
+ *
+ * The score is in discs, for the side to move, with two decimals, and
+ * exact, the final disc difference, as a whole number; for wld, win,
+ * draw, or loss. Then bestmove M, the move it makes.
+ *
+ * Black is X and white is O, as in Edax and NBoard. The times are in
+ * microseconds of platform_micros: steps in niceemu.
  *
  * Copyright (c) 2026 Michael Jørgensen. MIT license (see LICENSE).
  ***************************************************************/
@@ -28,6 +42,8 @@
 #include "version.h"
 
 static const char disc_chars[] = "-XO";
+
+static int solve_empties;     // Of solve N, platform_solve_empties at first
 
 /***************************************************************
  * next_word
@@ -204,6 +220,102 @@ static void do_divide(const char *arg)
     printf("perft %d: %llu\n", depth, (unsigned long long) total);
 } // end of do_divide
 
+// A score in discs, with two decimals: +1.25, -0.50.
+static void print_score(int score)
+{
+    int a = score < 0 ? -score : score;
+    printf("%c%d.%02d", score < 0 ? '-' : '+', a / 100, a % 100);
+} // end of print_score
+
+static uint32_t search_start, search_time;
+
+static int stop_search(void)
+{
+    return search_time && platform_micros() - search_start >= search_time;
+} // end of stop_search
+
+static int print_info(const engine_info_t *info)
+{
+    char name[5];
+    printf("info depth %d", info->depth);
+    if (info->exact == ENGINE_EXACT)
+        printf(" exact score %+d", info->score / 100);
+    else if (info->exact == ENGINE_WLD)
+        printf(" wld score %s", info->score > 0 ? "win" : info->score < 0 ? "loss" : "draw");
+    else
+    {
+        printf(" score ");
+        print_score(info->score);
+    }
+    printf(" nodes %lu time %lu pv", (unsigned long) info->nodes,
+           (unsigned long) (platform_micros() - search_start));
+    for (int i = 0; i < info->pv_len; ++i)
+    {
+        engine_move_name(info->pv[i], name);
+        printf(" %s", name);
+    }
+    printf("\n");
+    fflush(stdout);
+    return 0;
+} // end of print_info
+
+// A number of go or solve: digits only.
+static int parse_number(const char *s, uint32_t *n)
+{
+    if (!*s)
+        return 0;
+    uint32_t v = 0;
+    for (; *s; ++s)
+    {
+        if (*s < '0' || *s > '9' || v > 400000000u)
+            return 0;
+        v = v * 10 + (uint32_t) (*s - '0');
+    }
+    *n = v;
+    return 1;
+} // end of parse_number
+
+static void do_go(char *rest)
+{
+    engine_limits_t limits = { 0, 0, stop_search, solve_empties, 0 };
+    uint32_t n;
+    search_time = 0;
+
+    for (char *w = next_word(&rest); *w; w = next_word(&rest))
+    {
+        if (!strcmp(w, "wld"))
+            limits.wld = 1;
+        else if (!strcmp(w, "depth") && parse_number(next_word(&rest), &n) && n <= 64)
+            limits.depth = (int) n;
+        else if (!strcmp(w, "nodes") && parse_number(next_word(&rest), &n))
+            limits.nodes = n;
+        else if (!strcmp(w, "movetime") && parse_number(next_word(&rest), &n) && n <= 4000000)
+            search_time = n * 1000;
+        else if (parse_number(w, &n) && n <= 64)
+            limits.depth = (int) n;
+        else
+        {
+            printf("Invalid limit: %s\n", w);
+            return;
+        }
+    }
+    if (!limits.depth && !limits.nodes && !search_time)
+        search_time = platform_move_time();
+
+    search_start = platform_micros();
+    int move = engine_search(&limits, print_info);
+    if (move == ENGINE_NO_MOVE)
+    {
+        print_state();
+        return;
+    }
+    char name[5];
+    engine_move_name(move, name);
+    printf("bestmove %s\n", name);
+    engine_make_move(move);
+    print_state();
+} // end of do_go
+
 static void print_help(void)
 {
     printf("Commands:\n"
@@ -213,6 +325,9 @@ static void print_help(void)
            "  moves           the legal moves\n"
            "  move M, or M    make a move, such as d3, or pass\n"
            "  undo            take back the last move\n"
+           "  go [LIMITS]     search and make a move: depth N, nodes N, movetime MS, wld\n"
+           "  eval            the static evaluation\n"
+           "  solve N         solve exactly at N empty squares or fewer\n"
            "  perft N         count the leaves of the tree of moves of depth N\n"
            "  divide N        perft N, for each legal move\n"
            "  help\n"
@@ -225,6 +340,7 @@ int main(void)
 
     printf("nice_othello %s\n", nice_othello_version);
     engine_new_game();
+    solve_empties = platform_solve_empties();
 
     for (;;)
     {
@@ -261,6 +377,22 @@ int main(void)
         {
             if (!engine_undo())
                 printf("Nothing to undo\n");
+        }
+        else if (!strcmp(cmd, "go"))
+            do_go(rest);
+        else if (!strcmp(cmd, "eval"))
+        {
+            printf("eval ");
+            print_score(engine_eval());
+            printf("\n");
+        }
+        else if (!strcmp(cmd, "solve"))
+        {
+            uint32_t n;
+            if (parse_number(next_word(&rest), &n) && n <= 64)
+                solve_empties = (int) n;
+            else
+                printf("Invalid number of empty squares\n");
         }
         else if (!strcmp(cmd, "perft"))
             do_perft(next_word(&rest));

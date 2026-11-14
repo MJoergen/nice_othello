@@ -23,6 +23,11 @@ uint32_t platform_micros(void);
 // in both.
 uint32_t platform_move_time(void);
 
+// The number of empty squares at which the search solves the game
+// exactly, by default: as many as it solves in about the time of a
+// move.
+int platform_solve_empties(void);
+
 // The counts of platform_micros in a second of the players' clocks: a
 // million on a PC and on a board, where the clock is real, and in
 // niceemu 54 million steps, which the MEGA65 runs in a second, so that

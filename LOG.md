@@ -2,6 +2,49 @@
 
 Investigations made during the development (doc/HISTORY.md), newest first.
 
+## 2026-11-14: The speed of the search and the solver, at Stage 2
+
+In niceemu, the same searches as on the host, node for node
+(`TT_BITS` 13):
+
+- The middle game: about 2350 steps a node. `go depth 6` from the
+  start, 959 nodes, takes 2.26 million steps, 0.04 s at 54 million
+  steps a second. The evaluation calls `gen_moves` twice, and the order
+  of the moves once for each move of a node with 2 plies or more to go.
+- The solver: about 1200 steps a node. FFO 1 to 3, of 14 empty squares,
+  take 81426, 36558, and 144842 nodes, 315 million steps for the three:
+  1.5, 0.7, and 2.7 s on the MEGA65 at 54 million steps a second. So
+  NICE solves at 14 empty squares by default (`platform_solve_empties`),
+  within the 5 s of a move.
+
+On the host (`TT_BITS` 20, gcc -O2), the solver does about 17 million
+nodes a second. FFO 1 to 19 (14 to 16 empty squares) take 0.2 s in
+all. FFO 20 to 38:
+
+| FFO | Empty | Nodes | Seconds |
+|---:|---:|---:|---:|
+| 21 | 15 | 553522 | 0.04 |
+| 24 | 19 | 7202727 | 0.43 |
+| 26 | 20 | 23656714 | 1.41 |
+| 33 | 20 | 29951971 | 1.76 |
+| 36 | 21 | 58967431 | 3.51 |
+| 37 | 22 | 80650804 | 4.88 |
+| 38 | 24 | 569667882 | 33.83 |
+
+FFO 39, of 26 empty squares, took more than 60 s and was stopped. So
+the host solves at 20 empty squares by default, in about a second.
+Edax solves these much faster: its order of the moves, by a shallow
+search, and its speed per node are what to look at when the solver
+needs to be faster.
+
+The size of the MEGA65 build: 47078 words of the 94176, with the
+table's 16384. The deepest stacks, over a solve of 14 empty squares:
+309 words of the wasm stack and 598 of the NICE stack.
+
+Matches of the host build (`tools/match.py`, 6 random moves of an
+opening, each played with both colors): at depth 4 against random
+moves, 20 of 20, +47 discs a game; depth 6 against depth 2, 38 of 40.
+
 ## 2026-11-14: The speed of the move generator, at the start
 
 Perft from the start, with the code of Stage 1.
