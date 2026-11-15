@@ -50,7 +50,12 @@ uint8_t ms_square[MOVE_STACK_SIZE];
 int     ms_top;
 
 int search_stopped;
+// The N-tuple evaluation, if the build has its weights (NT_WEIGHTS).
+#ifdef NT_WEIGHTS
+int eval_kind = ENGINE_EVAL_NTUPLE;
+#else
 int eval_kind = ENGINE_EVAL_HAND;
+#endif
 static uint32_t nodes;
 static engine_limits_t limits;
 

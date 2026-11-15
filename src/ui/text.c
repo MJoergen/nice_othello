@@ -11,12 +11,15 @@
  *   undo            take back the last move
  *   go [LIMITS]     the engine searches, and makes its move
  *   eval            the static evaluation of the position
- *   evaluation E    use the evaluation E: hand (the default), written
- *                   by hand, or ntuple, the N-tuple network
+ *   evaluation E    use the evaluation E: ntuple, the N-tuple network
+ *                   (the default, with the weights of the build), or
+ *                   hand, written by hand
  *   weights FILE    load the weights of the N-tuple network, as
  *                   tools/train.c writes them, and use it (not on NICE,
  *                   which has no files)
  *   solve N         solve exactly at N empty squares or fewer
+ *   level N         the strength of go without limits: 1 to 5, or 0,
+ *                   for the time of platform_move_time (the default)
  *   perft N         count the leaves of the tree of moves of depth N
  *   divide N        perft N - 1 after each legal move
  *   help
@@ -24,7 +27,9 @@
  *
  * The limits of go: depth N, nodes N, movetime MS, and wld, which
  * solves for win, draw, or loss only. A number alone is a depth. With
- * no depth, nodes, or movetime, the search takes platform_move_time.
+ * no depth, nodes, or movetime, the search takes platform_move_time,
+ * or with a level, searches to the depth of the level, and solves
+ * exactly at its number of empty squares or fewer.
  * go prints a line for each iteration of the search:
  *
  *   info depth D [exact|wld] score S nodes N time T pv MOVES
@@ -50,6 +55,14 @@
 static const char disc_chars[] = "-XO";
 
 static int solve_empties;     // Of solve N, platform_solve_empties at first
+
+// The levels: the depth of the search, and the number of empty
+// squares at which it solves exactly. LOG.md has the time of a move on
+// the MEGA65 at each.
+#define LEVELS 5
+static const uint8_t level_depth[LEVELS] = {1, 2, 4, 6, 7};
+static const uint8_t level_solve[LEVELS] = {8, 10, 12, 14, 16};
+static int level;             // Of level N: 0, none, at first
 
 /***************************************************************
  * next_word
@@ -305,7 +318,15 @@ static void do_go(char *rest)
             return;
         }
     }
-    if (!limits.depth && !limits.nodes && !search_time)
+    if (!limits.depth && !limits.nodes && !search_time && level)
+    {
+        int black, white;
+        engine_count(&black, &white);
+        int empties = 64 - black - white;
+        limits.solve = level_solve[level - 1];
+        limits.depth = empties <= limits.solve ? empties : level_depth[level - 1];
+    }
+    else if (!limits.depth && !limits.nodes && !search_time)
         search_time = platform_move_time();
 
     search_start = platform_micros();
@@ -365,6 +386,7 @@ static void print_help(void)
            "  evaluation E    use the evaluation E: hand or ntuple\n"
            "  weights FILE    load the weights of the N-tuple network (and use it)\n"
            "  solve N         solve exactly at N empty squares or fewer\n"
+           "  level N         the strength of go without limits: 1 to 5, or 0 for the time of a move\n"
            "  perft N         count the leaves of the tree of moves of depth N\n"
            "  divide N        perft N, for each legal move\n"
            "  help\n"
@@ -442,6 +464,14 @@ int main(void)
                 solve_empties = (int) n;
             else
                 printf("Invalid number of empty squares\n");
+        }
+        else if (!strcmp(cmd, "level"))
+        {
+            uint32_t n;
+            if (parse_number(next_word(&rest), &n) && n <= LEVELS)
+                level = (int) n;
+            else
+                printf("Invalid level\n");
         }
         else if (!strcmp(cmd, "perft"))
             do_perft(next_word(&rest));

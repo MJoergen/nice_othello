@@ -102,6 +102,22 @@ and the diagonals, in 1 stage (`NT_MASK` 0xF8A): 75412 weights, which
 the NICE builds hold in a fourth page of linear memory. LOG.md has the
 measurements.
 
+## Stage 6: the weights in the image, and the levels (2026-11-15)
+
+The weights of `make train` at Stage 5, which scored 83% against the
+hand-written evaluation at depth 4, are `src/engine/ntuple_weights.bin`.
+`tools/mkweights.py` writes them as C, which `ntuple.c` includes, and
+the N-tuple evaluation is then the default, on the host and on NICE.
+On NICE it costs about as much as the hand-written one, 2360 steps a
+node of the search against 2500, so the cheaper patterns of Stage 5
+win no time back.
+
+`level N` in the text front end sets the depth of the search and the
+number of empty squares at which it solves: 5 levels, each measured in
+niceemu for the time of its moves on the MEGA65, and each of which
+beats the one below it (LOG.md). Without a level, go takes the time of
+platform_move_time, as before.
+
 ## Decisions
 
 1. nice_cpu is pinned to V2.0, the release nice_chess uses.
@@ -145,3 +161,12 @@ measurements.
     of the weights, maps onto itself under no symmetry, so it has
     nothing to fold; and in one stage, a table to fold the edge or a
     diagonal would cost as many words as it saves.
+12. The weights are in git as the trainer's binary file, and made into
+    C at build time, not as a C table: the file is a quarter of the
+    size, loads in the host builds with `weights`, and `make weights`
+    replaces it from a training.
+13. The levels are depths and solving thresholds, not times: on the
+    board and in niceemu a level plays the same moves, so its tests
+    are exact, and its strength does not change with the machine's
+    speed. They are in the text front end; the screen of Stage 7 will
+    share them.

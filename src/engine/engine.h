@@ -138,8 +138,9 @@ int engine_eval(void);
  * The evaluation
  ***************************************************************/
 
-#define ENGINE_EVAL_HAND   0   // Written by hand (eval.c), the default
-#define ENGINE_EVAL_NTUPLE 1   // The N-tuple network (ntuple.c)
+#define ENGINE_EVAL_HAND   0   // Written by hand (eval.c)
+#define ENGINE_EVAL_NTUPLE 1   // The N-tuple network (ntuple.c): the default
+                               // when the build has its weights (NT_WEIGHTS)
 
 // Sets the evaluation of engine_eval and engine_search, and clears the
 // transposition table, whose scores were of the other one.

@@ -17,6 +17,7 @@ a C compiler for the host, `git`, and `curl`.
     make match-random   # the host build at depth 4 against random moves (20 games)
     make train       # learn the N-tuple weights by self-play into build/train/weights.bin
     make match-hand  # the N-tuple evaluation with those weights against the hand-written one
+    make weights     # make those weights the builds' (src/engine/ntuple_weights.bin)
     make size        # the size of the MEGA65 build, against the 92K words the monitor leaves it
 
 To use local copies of nice_cpu and niceemu instead, pass `NICE_CPU=DIR`

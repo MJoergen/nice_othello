@@ -73,7 +73,13 @@ static uint16_t entry_power[NT_MAX_ENTRIES];
 
 NT_TLS uint16_t nt_index[NT_MAX_PLACES];
 
+// The weights: those of the file NT_WEIGHTS names, which
+// tools/mkweights.py makes from a file of the trainer, or 0.
+#ifdef NT_WEIGHTS
+#include NT_WEIGHTS
+#else
 static int16_t weights[NT_STAGES * NT_STAGE_SIZE];
+#endif
 
 static int initialized;
 

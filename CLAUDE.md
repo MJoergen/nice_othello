@@ -19,7 +19,8 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
   plays two programs, or one and random moves, through the text front
   end; `train.c` (C, on the host), which learns the N-tuple weights by
   TD(λ) self-play, in threads; `variant.sh`, which trains and measures
-  a choice of patterns and stages.
+  a choice of patterns and stages; `mkweights.py`, which writes the
+  weights of the builds as C, into `build/gen/`.
 - `doc/HISTORY.md`: how the engine was built, by stages, and the
   decisions, after the fact. Plans and open items are GitHub issues,
   not files or TODO comments.
@@ -44,6 +45,7 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
     make match-random   # depth 4 against random moves
     make train          # learn N-tuple weights into build/train/weights.bin (minutes)
     make match-hand     # those weights against the hand-written evaluation
+    make weights        # make those weights the builds' (src/engine/ntuple_weights.bin)
     make size           # the MEGA65 build against the 92K-word budget
 
 `make board-text` needs `ETH=IP` or `PORT=DEVICE` and a NiceMonMEGA65
@@ -79,6 +81,10 @@ asks.
 - The host build's `CHECK_STATE` checks the N-tuple indexes against
   those from scratch at every node of perft, and of the search when the
   N-tuple evaluation is in use.
+- The weights of the builds are `src/engine/ntuple_weights.bin`, in
+  git. Replace them (`make weights`) only with weights that beat them,
+  and say in the commit how they were trained and by how much they
+  won. New weights change the outputs of the search tests.
 - Pins (`NICE_CPU_TAG`, the SHA-256 sum) are raised by hand,
   deliberately, not as a side effect.
 - The docs are written in short, plain, factual sentences, and say what

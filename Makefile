@@ -46,7 +46,8 @@ BUDGET = 94176
 ENGINE  = $(wildcard src/engine/*.c)
 # The headers, and the Makefile, whose flags every build takes, so that
 # a change of the flags rebuilds.
-HEADERS = $(wildcard src/engine/*.h) src/platform/platform.h src/ui/version.h src/ui/weights_file.h Makefile
+HEADERS = $(wildcard src/engine/*.h) src/platform/platform.h src/ui/version.h src/ui/weights_file.h Makefile \
+          build/gen/weights.inc
 # The version, for the front end (VERSION).
 VERSIONC = build/gen/version.c
 
@@ -62,7 +63,13 @@ TT_BITS_FAST = 20
 # the same, so that the weights of the trainer load in each. 0xF8A is
 # the 2x5 corner, row1, and the diagonals: 75412 weights in 1 stage,
 # chosen by the measurements of LOG.md (2026-11-14, Stage 5).
-NT_FLAGS = -D NT_MASK=0xF8A -D NT_STAGES=1
+NT_MASK   = 0xF8A
+NT_STAGES = 1
+# The weights of the builds: src/engine/ntuple_weights.bin, which
+# make weights copies from a training (WEIGHTS), as C, by mkweights.py.
+NT_WEIGHTS_BIN = src/engine/ntuple_weights.bin
+NT_WEIGHTS_INC = build/gen/weights.inc
+NT_FLAGS = -D NT_MASK=$(NT_MASK) -D NT_STAGES=$(NT_STAGES) -D 'NT_WEIGHTS="weights.inc"' -I build/gen
 
 # NICE: optimized for speed, without asserts, and without the bounds
 # checks of wasm's memory accesses, which the host builds' asserts and
@@ -101,7 +108,7 @@ NTCHECK_HOST = 200
 NTCHECK_NICE = 20
 
 
-.PHONY: FORCE help all test host-test nice-test perft-deep ffo-deep match-random train match-hand size deps clean distclean board-text
+.PHONY: FORCE help all test host-test nice-test perft-deep ffo-deep match-random train match-hand weights size deps clean distclean board-text
 help:
 	@echo "nice_othello: an Othello engine for the NICE system"
 	@echo ""
@@ -115,6 +122,7 @@ help:
 	@echo "  make train         learn the N-tuple weights by self-play into WEIGHTS (build/train/weights.bin)"
 	@echo "                     (TRAIN_GAMES=$(TRAIN_GAMES), TRAIN_THREADS=$(TRAIN_THREADS), TRAIN_ARGS= more options of tools/train.c)"
 	@echo "  make match-hand    the N-tuple evaluation with WEIGHTS against the hand-written one, at depth 4 (100 games)"
+	@echo "  make weights       copy WEIGHTS into $(NT_WEIGHTS_BIN), the weights of the builds"
 	@echo "  make size          the size of the MEGA65 build, against the board's budget"
 	@echo "  make clean         remove build/"
 	@echo "  make distclean     remove build/ and deps/"
@@ -135,6 +143,10 @@ $(TOOLCHAIN): FORCE | $(NICE_CPU)
 	@mkdir -p $(@D)
 	@t="$(abspath $(NICE_CPU)) $$(git -C $(NICE_CPU) rev-parse HEAD 2>/dev/null)"; \
 	  [ "$$t" = "$$(cat $@ 2>/dev/null)" ] || echo "$$t" > $@
+
+$(NT_WEIGHTS_INC): $(NT_WEIGHTS_BIN) tools/mkweights.py Makefile
+	@mkdir -p $(@D)
+	$(PYTHON) tools/mkweights.py $< $(NT_MASK) $(NT_STAGES) $@
 
 $(VERSIONC): FORCE
 	@mkdir -p $(@D)
@@ -263,8 +275,15 @@ train: build/host/train
 	@mkdir -p $(dir $(WEIGHTS))
 	build/host/train --games $(TRAIN_GAMES) --threads $(TRAIN_THREADS) $(TRAIN_ARGS) $(WEIGHTS)
 
+# The weights of the builds, from a training, after a match-hand has
+# shown them better than those before (doc/HISTORY.md says how they were
+# made).
+weights:
+	cp $(WEIGHTS) $(NT_WEIGHTS_BIN)
+
 match-hand: build/host/othello_fast
-	$(PYTHON) tools/match.py --openings 50 --init1 "weights $(WEIGHTS)" build/host/othello_fast build/host/othello_fast
+	$(PYTHON) tools/match.py --openings 50 --init1 "weights $(WEIGHTS)" --init2 "evaluation hand" \
+	  build/host/othello_fast build/host/othello_fast
 
 # Against random moves, at depth 4: it must win every game.
 match-random: build/host/othello_fast

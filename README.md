@@ -7,10 +7,10 @@ board, the move generator, an alpha-beta search with an evaluation
 written by hand, the exact solver of the end of the game, and a text
 front end, on the host, in niceemu, and on the MEGA65; and the N-tuple
 evaluation, with a trainer that learns its weights by self-play on the
-host. The patterns are chosen: the 2×5 corner, the edge, and the
-diagonals, in one stage (doc/HISTORY.md). The host loads the weights
-the trainer writes; the NICE builds do not have them yet, and play with
-the evaluation written by hand. CONTRIBUTING.md says how to build it and run
+host. The weights are built into every build, and the N-tuple
+evaluation is the one the engine plays with. The text front end has 5
+levels, from a move in a moment to about 30 seconds a game on the
+MEGA65. CONTRIBUTING.md says how to build it and run
 the tests, and doc/HISTORY.md how far the work has come.
 
 The engine will be for Othello

@@ -26,3 +26,16 @@ go depth 3
 evaluation foo
 evaluation hand
 eval
+new
+evaluation hand
+go depth 6
+new
+evaluation ntuple
+level 2
+go
+go
+pos --XXXXX--OOOXX-O-OOOXXOX-OXOXOXXOXXXOXXX--XOXOXX-XXXOOO--OOOOO-- X
+level 4
+go
+level 6
+level 0

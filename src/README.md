@@ -28,8 +28,10 @@ the game is 100 times the disc difference, with the empty squares to
 the winner. The solver works in whole discs. A node of the search
 whose depth reaches the end of the game is handed to the solver.
 
-The evaluation is the one written by hand (`eval.c`) or the N-tuple
-network (`ntuple.c`), chosen by `engine_set_eval`. The indexes of the
+The evaluation is the N-tuple network (`ntuple.c`) or the one written
+by hand (`eval.c`), chosen by `engine_set_eval`. The N-tuple network
+is the default when the build has its weights: `NT_WEIGHTS` names the
+C that `tools/mkweights.py` makes of `ntuple_weights.bin`. The indexes of the
 N-tuple network are of the whole board, from black's view: `board.c`
 keeps those of the game, and the search updates them around each move
 when the N-tuple evaluation is in use. The patterns and the stages are

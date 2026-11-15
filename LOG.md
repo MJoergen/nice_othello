@@ -2,6 +2,50 @@
 
 Investigations made during the development (doc/HISTORY.md), newest first.
 
+## 2026-11-15: The weights on NICE, and the levels, at Stage 6
+
+The weights in the build: those of `make train` at Stage 5, 3000000
+games, 83% against the hand-written evaluation at depth 4. With them,
+FFO #1 (14 empties) solves in 51767 nodes instead of 81338, and the
+moves of FFO #4 and #6 change to others of the same score.
+
+The cost of the search on NICE, `go depth 7` from the start in
+niceemu: 2593 nodes in 6118576 steps with the N-tuple evaluation, 2360
+steps a node; 3145 nodes in 7850312 steps with the hand-written one,
+2496 a node.
+
+The time of a move by depth, in self-play of the NICE build from 10
+openings of 6 random moves, the moves with more than 20 empty squares,
+in steps, and the worst in seconds on the MEGA65 at 54 million steps a
+second:
+
+| Depth | Mean | Worst | Worst, seconds |
+|---:|---:|---:|---:|
+| 1 | 31214 | 49739 | 0.00 |
+| 2 | 142660 | 313147 | 0.01 |
+| 3 | 609156 | 1400610 | 0.03 |
+| 4 | 1906176 | 4800807 | 0.09 |
+| 5 | 6741030 | 29625550 | 0.55 |
+| 6 | 20359388 | 77548389 | 1.44 |
+| 7 | 84720443 | 348802818 | 6.46 |
+| 8 | 216007450 | 1107536134 | 20.51 |
+
+The levels, by the same games: the time of both sides together for a
+game, and the worst move, which is the first that solves.
+
+| Level | Depth | Solves at | A game | Worst midgame move | Worst solve |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 1 | 8 | 0.1 s | 0.00 s | 0.03 s |
+| 2 | 2 | 10 | 0.2 s | 0.01 s | 0.07 s |
+| 3 | 4 | 12 | 1.7 s | 0.09 s | 0.71 s |
+| 4 | 6 | 14 | 15.7 s | 1.44 s | 3.26 s |
+| 5 | 7 | 16 | 63.3 s | 6.46 s | 14.81 s |
+
+Each level against the one below, on the host (`othello_fast`), 50
+openings with both colours: 2 against 1, 86%; 3 against 2, 91%; 4
+against 3, 78.5%; 5 against 4, 68.5%. Level 1 against random moves,
+98%.
+
 ## 2026-11-14: The patterns and the stages, at Stage 5
 
 `tools/variant.sh` builds the trainer and the engine for a choice of
