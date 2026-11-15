@@ -12,8 +12,9 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
   poll) and `src/ui/` (`text.c`) are around it.
 - `tests/`: the inputs of the tests, `*.grep` (the lines of the output
   that are compared) and `*.expected`, and the test programs
-  (`randgames.c`, `solvecheck.c`, `ffosuite.c`, `ntcheck.c`). `tools/runtest.sh`
-  runs one test.
+  (`randgames.c`, `solvecheck.c`, `ffosuite.c`, `ntcheck.c`), and the
+  keys of the screen's tests (`*.keys`). `tools/runtest.sh` runs one
+  test.
 - `tools/`: `runtest.sh`; `size.py`, which checks the size of the
   MEGA65 build against the budget (from nice_chess); `match.py`, which
   plays two programs, or one and random moves, through the text front
@@ -46,10 +47,10 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
     make train          # learn N-tuple weights into build/train/weights.bin (minutes)
     make match-hand     # those weights against the hand-written evaluation
     make weights        # make those weights the builds' (src/engine/ntuple_weights.bin)
-    make size           # the MEGA65 build against the 92K-word budget
+    make size           # the MEGA65 builds against the 92K-word budget
 
-`make board-text` needs `ETH=IP` or `PORT=DEVICE` and a NiceMonMEGA65
-checkout (`NICEMON=DIR`). It is not in CI; run it only when the user
+`make board-text` and `make board-screen` need `ETH=IP` or
+`PORT=DEVICE` and a NiceMonMEGA65 checkout (`NICEMON=DIR`). It is not in CI; run it only when the user
 asks.
 
 ## Conventions

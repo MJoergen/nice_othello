@@ -2,6 +2,18 @@
 
 Investigations made during the development (doc/HISTORY.md), newest first.
 
+## 2026-11-15: The windowed front end, at Stage 7
+
+The game of `tests/screen_game.keys`: the engine plays both sides at
+level 1 through the screen, by the key M. Its 61 moves, with white's
+pass after a8, are those of the host's text front end with `level 1`
+and `go` for each move, and so are those of `tests/screen.keys` with
+the same searches by `go` and `move` (each search printed the same
+depth, score, and nodes). Black won 46-18.
+
+The MEGA65 builds: the text front end needs 82883 words of 94176, the
+windowed one 80164.
+
 ## 2026-11-15: The weights on NICE, and the levels, at Stage 6
 
 The weights in the build: those of `make train` at Stage 5, 3000000

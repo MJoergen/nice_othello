@@ -49,20 +49,14 @@
 #include <string.h>
 #include "../engine/engine.h"
 #include "../platform/platform.h"
+#include "levels.h"
 #include "version.h"
 #include "weights_file.h"
 
 static const char disc_chars[] = "-XO";
 
 static int solve_empties;     // Of solve N, platform_solve_empties at first
-
-// The levels: the depth of the search, and the number of empty
-// squares at which it solves exactly. LOG.md has the time of a move on
-// the MEGA65 at each.
-#define LEVELS 5
-static const uint8_t level_depth[LEVELS] = {1, 2, 4, 6, 7};
-static const uint8_t level_solve[LEVELS] = {8, 10, 12, 14, 16};
-static int level;             // Of level N: 0, none, at first
+static int level;             // Of level N (levels.h): 0, none, at first
 
 /***************************************************************
  * next_word
@@ -319,13 +313,7 @@ static void do_go(char *rest)
         }
     }
     if (!limits.depth && !limits.nodes && !search_time && level)
-    {
-        int black, white;
-        engine_count(&black, &white);
-        int empties = 64 - black - white;
-        limits.solve = level_solve[level - 1];
-        limits.depth = empties <= limits.solve ? empties : level_depth[level - 1];
-    }
+        level_limits(level, &limits);
     else if (!limits.depth && !limits.nodes && !search_time)
         search_time = platform_move_time();
 

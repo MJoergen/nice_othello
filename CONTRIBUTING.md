@@ -55,6 +55,12 @@ MEGA65 build after a stand-in for the monitor:
 - `train`: the selftest of `tools/train.c`: 2000 games of training, and
   then the values are antisymmetric in the colours, and the weights it
   writes give the engine the trainer's values, to the rounding.
+- `screen`, `screen_game`: the windowed front end in niceemu, by the
+  keys of `tests/*.keys`, then the moves it logs and the screen at the
+  end, with its colors. `screen` tries each key; in `screen_game` the
+  engine plays a whole game, with a pass, by the key M. Its moves are
+  those of the text front end's `go` at the same level, search for
+  search.
 - `ffo1`: `tests/ffosuite.c` solves the FFO positions 1 to 19 (3 in
   niceemu), of 14 to 16 empty squares, which must give the published
   scores. `make ffo-deep` solves 20 to 38, of up to 24.
@@ -67,7 +73,9 @@ patterns and stages, in `build/variants/NAME/`.
 ## On the MEGA65
 
     make board-text ETH=IP       # or PORT=/dev/ttyUSBn
+    make board-screen ETH=IP
 
-loads the text front end under NiceMonMEGA65's monitor and runs it. It
-needs a checkout of NiceMonMEGA65 (`NICEMON=DIR`, `../NiceMonMEGA65` by
+load the text front end, or the windowed one, under NiceMonMEGA65's
+monitor and run it. The keys of the windowed front end are at the top
+of `src/ui/screen.c`, and on its screen. Both need a checkout of NiceMonMEGA65 (`NICEMON=DIR`, `../NiceMonMEGA65` by
 default).

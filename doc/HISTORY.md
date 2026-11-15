@@ -118,6 +118,17 @@ niceemu for the time of its moves on the MEGA65, and each of which
 beats the one below it (LOG.md). Without a level, go takes the time of
 platform_move_time, as before.
 
+## Stage 7: the windowed front end (2026-11-15)
+
+`src/ui/screen.c` plays on NICE's screen, as nice_chess's does, but
+smaller: no clocks, book, or pondering. A disc is a circle over the 15
+characters of its square, in glyphs that the program computes into the
+font RAM at its start; a dot marks each legal move. The level table
+went into `src/ui/levels.h`, for both front ends. The text front end
+over the UART was there from Stage 0. Its tests, in niceemu, play by
+keys; in one, the engine plays a whole game through the screen by the
+key M, and its moves are those of the text front end on the host.
+
 ## Decisions
 
 1. nice_cpu is pinned to V2.0, the release nice_chess uses.
@@ -170,3 +181,5 @@ platform_move_time, as before.
     are exact, and its strength does not change with the machine's
     speed. They are in the text front end; the screen of Stage 7 will
     share them.
+14. The screen's command keys are none of a to h, the letters that
+    start a typed move: M, not G, makes the player's move.

@@ -10,7 +10,8 @@ evaluation, with a trainer that learns its weights by self-play on the
 host. The weights are built into every build, and the N-tuple
 evaluation is the one the engine plays with. The text front end has 5
 levels, from a move in a moment to about 30 seconds a game on the
-MEGA65. CONTRIBUTING.md says how to build it and run
+MEGA65. On the MEGA65 it plays on the screen and keyboard, or as the
+text front end over the UART. CONTRIBUTING.md says how to build it and run
 the tests, and doc/HISTORY.md how far the work has come.
 
 The engine will be for Othello

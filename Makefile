@@ -46,7 +46,7 @@ BUDGET = 94176
 ENGINE  = $(wildcard src/engine/*.c)
 # The headers, and the Makefile, whose flags every build takes, so that
 # a change of the flags rebuilds.
-HEADERS = $(wildcard src/engine/*.h) src/platform/platform.h src/ui/version.h src/ui/weights_file.h Makefile \
+HEADERS = $(wildcard src/engine/*.h) src/platform/platform.h src/ui/version.h src/ui/weights_file.h src/ui/levels.h Makefile \
           build/gen/weights.inc
 # The version, for the front end (VERSION).
 VERSIONC = build/gen/version.c
@@ -108,7 +108,7 @@ NTCHECK_HOST = 200
 NTCHECK_NICE = 20
 
 
-.PHONY: FORCE help all test host-test nice-test perft-deep ffo-deep match-random train match-hand weights size deps clean distclean board-text
+.PHONY: FORCE help all test host-test nice-test perft-deep ffo-deep match-random train match-hand weights size deps clean distclean board-text board-screen
 help:
 	@echo "nice_othello: an Othello engine for the NICE system"
 	@echo ""
@@ -132,6 +132,7 @@ help:
 	@echo "checkout of NiceMonMEGA65 (NICEMON=DIR, ../NiceMonMEGA65 by default):"
 	@echo ""
 	@echo "  make board-text    load and run the text front end, then talk to it over the line"
+	@echo "  make board-screen  load and run the windowed front end, for the screen and keyboard"
 	@echo ""
 	@echo "NICE_CPU=DIR and NICEEMU=PATH use local copies of nice_cpu and niceemu."
 
@@ -155,7 +156,8 @@ $(VERSIONC): FORCE
 
 FORCE:
 
-all: build/nice/othello_text.bin build/mega65/othello_text.bin build/host/othello_text build/host/othello_fast
+all: build/nice/othello_text.bin build/nice/othello_screen.bin build/mega65/othello_text.bin \
+     build/mega65/othello_screen.bin build/host/othello_text build/host/othello_fast
 
 build/nice/othello_text.bin: $(ENGINE) $(HEADERS) src/ui/text.c src/platform/nice.c $(VERSIONC) $(TOOLCHAIN)
 	@mkdir -p $(@D)
@@ -164,6 +166,14 @@ build/nice/othello_text.bin: $(ENGINE) $(HEADERS) src/ui/text.c src/platform/nic
 build/mega65/othello_text.bin: $(ENGINE) $(HEADERS) src/ui/text.c src/platform/nice.c $(VERSIONC) $(TOOLCHAIN)
 	@mkdir -p $(@D)
 	$(NICEBUILD) $(MONFLAGS) -o $@ $(ENGINE) $(VERSIONC) src/ui/text.c src/platform/nice.c
+
+build/nice/othello_screen.bin: $(ENGINE) $(HEADERS) src/ui/screen.c src/platform/nice.c $(VERSIONC) $(TOOLCHAIN)
+	@mkdir -p $(@D)
+	$(NICEBUILD) $(NICEFLAGS) -o $@ $(ENGINE) $(VERSIONC) src/ui/screen.c src/platform/nice.c
+
+build/mega65/othello_screen.bin: $(ENGINE) $(HEADERS) src/ui/screen.c src/platform/nice.c $(VERSIONC) $(TOOLCHAIN)
+	@mkdir -p $(@D)
+	$(NICEBUILD) $(MONFLAGS) -o $@ $(ENGINE) $(VERSIONC) src/ui/screen.c src/platform/nice.c
 
 build/nice/randgames.bin: $(ENGINE) $(HEADERS) tests/randgames.c $(TOOLCHAIN)
 	@mkdir -p $(@D)
@@ -242,9 +252,9 @@ host-test: build/host/othello_text build/host/randgames build/host/solvecheck bu
 	@tools/runtest.sh host_ntcheck ntcheck$(NTCHECK_HOST) /dev/null host build/host/ntcheck $(NTCHECK_HOST)
 	@tools/runtest.sh host_train train /dev/null host build/host/train --selftest build/test/train_selftest.bin
 
-nice-test: build/nice/othello_text.bin build/nice/randgames.bin build/nice/solvecheck.bin build/nice/ffosuite.bin \
-           build/nice/ntcheck.bin \
-           build/test/mon_othello_text.bin $(FFO1_NICE) | $(NICEEMU)
+nice-test: build/nice/othello_text.bin build/nice/othello_screen.bin build/nice/randgames.bin \
+           build/nice/solvecheck.bin build/nice/ffosuite.bin build/nice/ntcheck.bin \
+           build/test/mon_othello_text.bin build/test/mon_othello_screen.bin $(FFO1_NICE) | $(NICEEMU)
 	@tools/runtest.sh nice_text text tests/text.input nice build/nice/othello_text.bin
 	@tools/runtest.sh nice_search search tests/search.input nice build/nice/othello_text.bin
 	@tools/runtest.sh nice_perft7 perft7 tests/perft7.input nice build/nice/othello_text.bin
@@ -252,9 +262,12 @@ nice-test: build/nice/othello_text.bin build/nice/randgames.bin build/nice/solve
 	@tools/runtest.sh nice_solvecheck solvecheck$(word 2,$(SOLVECHECK_NICE)) /dev/null nice build/nice/solvecheck.bin
 	@tools/runtest.sh nice_ffo1 ffo1-3 $(FFO1_NICE) nice build/nice/ffosuite.bin
 	@tools/runtest.sh nice_ntcheck ntcheck$(NTCHECK_NICE) /dev/null nice build/nice/ntcheck.bin
+	@tools/runtest.sh nice_screen screen tests/screen.keys screen build/nice/othello_screen.bin
+	@tools/runtest.sh nice_screen_game screen_game tests/screen_game.keys screen build/nice/othello_screen.bin
 	@tools/runtest.sh mega65_text text tests/text.input nice build/test/mon_othello_text.bin
 	@tools/runtest.sh mega65_search search tests/search.input nice build/test/mon_othello_text.bin
 	@tools/runtest.sh mega65_perft7 perft7 tests/perft7.input nice build/test/mon_othello_text.bin
+	@tools/runtest.sh mega65_screen screen tests/screen.keys screen build/test/mon_othello_screen.bin
 
 perft-deep: build/host/othello_fast
 	@tools/runtest.sh host_perft11 perft11 tests/perft11.input host build/host/othello_fast
@@ -289,14 +302,20 @@ match-hand: build/host/othello_fast
 match-random: build/host/othello_fast
 	$(PYTHON) tools/match.py --go1 "go depth 4" --min-score 20 build/host/othello_fast random
 
-size: build/mega65/othello_text.bin build/test/mon_othello_text.bin | $(NICEEMU)
+size: build/mega65/othello_text.bin build/mega65/othello_screen.bin build/test/mon_othello_text.bin \
+      build/test/mon_othello_screen.bin | $(NICEEMU)
 	$(PYTHON) tools/size.py --emu $(NICEEMU) --input tests/size.input --run build/test/mon_othello_text.bin \
 	  --budget $(BUDGET) --check build/mega65/othello_text.bin
+	$(PYTHON) tools/size.py --emu $(NICEEMU) --input tests/screen_game.keys --run build/test/mon_othello_screen.bin \
+	  --budget $(BUDGET) --check build/mega65/othello_screen.bin
 
 # The board. load.py loads a program under the monitor and types r, which
 # runs it; what it prints then comes on the line, such as nc IP 4510 or
 # picocom -b 2000000 DEVICE (NiceMonMEGA65's tools/README.md).
 board-text: build/mega65/othello_text.bin
+	$(PYTHON) $(NICEMON)/tools/load.py $(BOARDLINK) --monitor $<
+
+board-screen: build/mega65/othello_screen.bin
 	$(PYTHON) $(NICEMON)/tools/load.py $(BOARDLINK) --monitor $<
 
 deps: $(NICE_CPU) $(NICEEMU) $(FFO1) $(FFO20)
