@@ -129,6 +129,21 @@ over the UART was there from Stage 0. Its tests, in niceemu, play by
 keys; in one, the engine plays a whole game through the screen by the
 key M, and its moves are those of the text front end on the host.
 
+## Stage 8: NBoard, and the rating against Edax (2026-11-15)
+
+The text front end speaks the NBoard protocol after its command
+`nboard`, as GUIs start an engine: games in GGF, go, hint, ping. A
+test runs it on the host and in niceemu, and match.py plays it, by
+set game and go at each move.
+
+`make edax` builds Edax 4.7 at the commit already pinned for the FFO
+positions, with the weights of its release v4.4. match.py plays it by
+GTP. `make rate` plays each level against Edax's level of the same
+number: 1 to 5 score 41, 34, 47, 44, and 42% (LOG.md has the pairs
+around them). Edax's level N searches N moves deep, less than
+nice_othello's (1, 2, 4, 6, and 7), and still wins a little more: its
+evaluation, and its selective search, are the better ones.
+
 ## Decisions
 
 1. nice_cpu is pinned to V2.0, the release nice_chess uses.
@@ -183,3 +198,9 @@ key M, and its moves are those of the text front end on the host.
     share them.
 14. The screen's command keys are none of a to h, the letters that
     start a typed move: M, not G, makes the player's move.
+15. Edax is played by GTP, not NBoard: under NBoard, Edax 4.7 writes
+    its move only once it reads the next line of its input, and a
+    ping sent for that did not always bring it.
+16. NBoard's depth N is a search of depth N that solves at N + 8 empty
+    squares or fewer (up to platform_solve_empties): at the depths of
+    the levels, about what they do.

@@ -20,6 +20,7 @@
  *   solve N         solve exactly at N empty squares or fewer
  *   level N         the strength of go without limits: 1 to 5, or 0,
  *                   for the time of platform_move_time (the default)
+ *   nboard N        speak the NBoard protocol from then on (below)
  *   perft N         count the leaves of the tree of moves of depth N
  *   divide N        perft N - 1 after each legal move
  *   help
@@ -37,6 +38,26 @@
  * The score is in discs, for the side to move, with two decimals, and
  * exact, the final disc difference, as a whole number; for wld, win,
  * draw, or loss. Then bestmove M, the move it makes.
+ *
+ * nboard switches to the NBoard protocol of Othello GUIs, for the rest
+ * of the input. It takes:
+ *
+ *   set depth N     search to depth N, and solve exactly at N + 8 empty
+ *                   squares or fewer, but no more than
+ *                   platform_solve_empties: 6 at first
+ *   set game GGF    the game, in GGF: its start, BO[...], and its moves
+ *   move M[/...]    a move: F5, or PA for a pass
+ *   go              answers "=== M/EVAL/TIME": the engine's move, the
+ *                   score in discs for its side, and the time in seconds
+ *   hint N          answers "search M EVAL 0 DEPTH" for the best move,
+ *                   then "status"
+ *   ping N          answers "pong N"
+ *   learn           answers "learned"
+ *   quit
+ *
+ * and ignores the rest, such as set contempt and analyze. It answers
+ * nboard with "set myname nice_othello", and says what it does in
+ * "status" lines.
  *
  * Black is X and white is O, as in Edax and NBoard. The times are in
  * microseconds of platform_micros: steps in niceemu.
@@ -360,6 +381,167 @@ static void do_weights(const char *name)
     printf("Weights of %s\n", name);
 } // end of do_weights
 
+/***************************************************************
+ * The NBoard protocol
+ ***************************************************************/
+static int nboard_depth = 6;
+
+// Sets the game of the GGF text s: the position of BO[8 ...], and the
+// moves B[...] and W[...] after it. Returns 0 if it is not a game.
+static int nboard_set_game(const char *s)
+{
+    char pos[ENGINE_POS_LEN + 1];
+    const char *b = strstr(s, "BO[8");
+    if (!b)
+        return 0;
+    b += 4;
+    int n = 0;
+    // The 64 squares, then the side to move: * or X black, O white.
+    for (; *b && *b != ']' && n < ENGINE_POS_LEN; ++b)
+    {
+        char c = *b;
+        if (c == '*' || c == 'X' || c == 'x')
+            pos[n++] = 'X';
+        else if (c == 'O' || c == 'o')
+            pos[n++] = 'O';
+        else if (c == '-' || c == '.')
+            pos[n++] = '-';
+        if (n == 64)
+            pos[n++] = ' ';
+    }
+    pos[n] = '\0';
+    if (n != ENGINE_POS_LEN || !engine_set_position(pos))
+        return 0;
+    for (const char *m = b; *m; ++m)
+    {
+        if ((*m != 'B' && *m != 'W') || m[1] != '[')
+            continue;
+        char name[5];
+        int k = 0;
+        for (m += 2; *m && *m != ']' && *m != '/' && k < 4; ++m)
+            name[k++] = *m;
+        name[k] = '\0';
+        int move = (name[0] == 'P' || name[0] == 'p') && (name[1] == 'A' || name[1] == 'a')
+                   ? ENGINE_PASS : engine_parse_move(name);
+        if (move == ENGINE_NO_MOVE || !engine_make_move(move))
+            return 0;
+        if (!*m)
+            break;
+    }
+    return 1;
+}
+
+// A move as NBoard writes it: F5, or PA.
+static void nboard_move_name(int move, char *buf)
+{
+    if (move == ENGINE_PASS)
+    {
+        buf[0] = 'P', buf[1] = 'A', buf[2] = '\0';
+        return;
+    }
+    engine_move_name(move, buf);
+    buf[0] = (char) (buf[0] - 'a' + 'A');
+}
+
+static engine_info_t nboard_info;
+
+static int nboard_on_info(const engine_info_t *info)
+{
+    nboard_info = *info;
+    return 0;
+}
+
+// Searches the position at nboard_depth, into nboard_info. Returns the
+// move, or ENGINE_NO_MOVE at the end of the game.
+static int nboard_search(void)
+{
+    int solve = nboard_depth + 8;
+    if (solve > platform_solve_empties())
+        solve = platform_solve_empties();
+    engine_limits_t limits = { nboard_depth, 0, NULL, solve, 0 };
+    int black, white;
+    engine_count(&black, &white);
+    if (64 - black - white <= solve)
+        limits.depth = 64 - black - white;
+    nboard_info.pv_len = 0;
+    nboard_info.score = 0;
+    nboard_info.depth = 0;
+    return engine_search(&limits, nboard_on_info);
+}
+
+// The score of nboard_info in discs, with two decimals.
+static void print_nboard_score(void)
+{
+    int s = nboard_info.score;
+    printf("%s%d.%02d", s < 0 ? "-" : "", (s < 0 ? -s : s) / 100, (s < 0 ? -s : s) % 100);
+}
+
+static void nboard(void)
+{
+    static char line[2048];
+    printf("set myname nice_othello\n");
+    fflush(stdout);
+    while (read_line(line, sizeof line))
+    {
+        char *rest = line;
+        char *cmd = next_word(&rest);
+        if (!strcmp(cmd, "quit"))
+            break;
+        else if (!strcmp(cmd, "ping"))
+            printf("pong %s\n", next_word(&rest));
+        else if (!strcmp(cmd, "learn"))
+            printf("learned\n");
+        else if (!strcmp(cmd, "set"))
+        {
+            char *what = next_word(&rest);
+            uint32_t n;
+            if (!strcmp(what, "depth") && parse_number(next_word(&rest), &n) && n >= 1 && n <= 60)
+                nboard_depth = (int) n;
+            else if (!strcmp(what, "game") && !nboard_set_game(rest))
+                printf("status Invalid game\n");
+        }
+        else if (!strcmp(cmd, "move"))
+        {
+            char *m = next_word(&rest);
+            char *slash = strchr(m, '/');
+            if (slash)
+                *slash = '\0';
+            int move = !strcmp(m, "PA") || !strcmp(m, "pa") ? ENGINE_PASS : engine_parse_move(m);
+            if (move == ENGINE_NO_MOVE || !engine_make_move(move))
+                printf("status Invalid move %s\n", m);
+        }
+        else if (!strcmp(cmd, "go") || !strcmp(cmd, "hint"))
+        {
+            printf("status Thinking\n");
+            fflush(stdout);
+            uint32_t start = platform_micros();
+            int move = nboard_search();
+            uint32_t micros = platform_micros() - start;
+            char name[5];
+            if (move == ENGINE_NO_MOVE)
+                printf("status The game is over\n");
+            else if (!strcmp(cmd, "go"))
+            {
+                nboard_move_name(move, name);
+                printf("=== %s/", name);
+                print_nboard_score();
+                printf("/%u.%03u\n", (unsigned) (micros / 1000000),
+                       (unsigned) (micros / 1000 % 1000));
+                engine_make_move(move);
+            }
+            else
+            {
+                nboard_move_name(move, name);
+                printf("search %s ", name);
+                print_nboard_score();
+                printf(" 0 %d\n", nboard_info.depth);
+            }
+            printf("status\n");
+        }
+        fflush(stdout);
+    }
+} // end of nboard
+
 static void print_help(void)
 {
     printf("Commands:\n"
@@ -375,6 +557,7 @@ static void print_help(void)
            "  weights FILE    load the weights of the N-tuple network (and use it)\n"
            "  solve N         solve exactly at N empty squares or fewer\n"
            "  level N         the strength of go without limits: 1 to 5, or 0 for the time of a move\n"
+           "  nboard N        speak the NBoard protocol from then on\n"
            "  perft N         count the leaves of the tree of moves of depth N\n"
            "  divide N        perft N, for each legal move\n"
            "  help\n"
@@ -383,7 +566,7 @@ static void print_help(void)
 
 int main(void)
 {
-    static char line[256];
+    static char line[2048];
 
     printf("nice_othello %s\n", nice_othello_version);
     engine_new_game();
@@ -460,6 +643,11 @@ int main(void)
                 level = (int) n;
             else
                 printf("Invalid level\n");
+        }
+        else if (!strcmp(cmd, "nboard"))
+        {
+            nboard();
+            break;
         }
         else if (!strcmp(cmd, "perft"))
             do_perft(next_word(&rest));

@@ -49,7 +49,7 @@ chosen at build time (`NT_MASK`, `NT_STAGES`).
 
 | File | What it does |
 |---|---|
-| `text.c` | The text front end on the console: set up positions, make and take back moves, search (`go`), solve, choose the evaluation, load weights, perft. |
+| `text.c` | The text front end on the console: set up positions, make and take back moves, search (`go`), the levels, solve, choose the evaluation, load weights, perft; and the NBoard protocol, after `nboard`. |
 | `screen.c` | The windowed front end, on NICE's 80x25 screen: the board with its discs, the player's moves by the cursor or typed, the engine's thinking, the moves of the game, the levels. |
 | `levels.h` | The levels 1 to 5 of both front ends: a depth, and the empty squares at which the search solves. |
 | `version.h` | The version of the build, which the Makefile writes into `build/gen/version.c`. |

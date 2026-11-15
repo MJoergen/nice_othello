@@ -1,0 +1,20 @@
+nboard 2
+set depth 4
+set game (;GM[Othello]PC[x]PB[a]PW[b]RE[?]TI[0]TY[8]BO[8 ---------------------------O*------*O--------------------------- *]B[F5//1.2]W[F6];)
+ping 1
+go
+hint 1
+move F4/0.5/1.0
+go
+move D3
+set contempt 0
+set depth 6
+set game (;GM[Othello]BO[8 --XXXXX--OOOXX-O-OOOXXOX-OXOXOXXOXXXOXXX--XOXOXX-XXXOOO--OOOOO-- *];)
+go
+set game (;GM[Othello]BO[8 OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO-X- *];)
+go
+set game (;GM[Othello]BO[8 OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOX--- O];)
+go
+set game junk
+learn
+ping 2

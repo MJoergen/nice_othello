@@ -18,6 +18,8 @@ a C compiler for the host, `git`, and `curl`.
     make train       # learn the N-tuple weights by self-play into build/train/weights.bin
     make match-hand  # the N-tuple evaluation with those weights against the hand-written one
     make weights     # make those weights the builds' (src/engine/ntuple_weights.bin)
+    make edax        # fetch and build Edax at its pinned commit, with its weights
+    make rate        # the 5 levels against Edax's levels 1 to 5 (a few minutes)
     make size        # the size of the MEGA65 build, against the 92K words the monitor leaves it
 
 To use local copies of nice_cpu and niceemu instead, pass `NICE_CPU=DIR`
@@ -55,6 +57,8 @@ MEGA65 build after a stand-in for the monitor:
 - `train`: the selftest of `tools/train.c`: 2000 games of training, and
   then the values are antisymmetric in the colours, and the weights it
   writes give the engine the trainer's values, to the rounding.
+- `nboard`: the NBoard protocol of the text front end, through
+  `tests/nboard.input`: games in GGF, go, hint, ping, and errors.
 - `screen`, `screen_game`: the windowed front end in niceemu, by the
   keys of `tests/*.keys`, then the moves it logs and the screen at the
   end, with its colors. `screen` tries each key; in `screen_game` the
@@ -66,7 +70,12 @@ MEGA65 build after a stand-in for the monitor:
   scores. `make ffo-deep` solves 20 to 38, of up to 24.
 
 `tools/match.py` plays two programs, or one and random moves, from
-random openings, each with both colors. `tools/variant.sh NAME MASK
+random openings, each with both colors. A program is the text front
+end, or one that speaks NBoard (`nboard:COMMAND`) or GTP
+(`gtp:COMMAND`, as Edax does). `tools/rate.sh`, which `make rate`
+runs, plays the levels against Edax's and gives the difference of Elo.
+Edax is not in `make deps`: `make edax` needs git, a C compiler, and
+7z. `tools/variant.sh NAME MASK
 STAGES` builds, trains, and measures another choice of the N-tuple
 patterns and stages, in `build/variants/NAME/`.
 

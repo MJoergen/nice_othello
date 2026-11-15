@@ -3,12 +3,23 @@
 
 Usage: match.py [options] PLAYER1 PLAYER2
 
-A player is a command that runs the text front end, such as
-build/host/othello_fast, or the word random, which plays a legal move
-at random. For each move, match.py sends the program the position
-with pos, then go with its limits (--go1, --go2), and reads its
-bestmove. --init1 and --init2 are commands sent once at the start,
-separated by ';', such as "weights build/train/weights.bin". It keeps the game itself, by its own rules of the game, so a
+A player is one of:
+
+- a command that runs the text front end, such as
+  build/host/othello_fast. For each move, match.py sends it the
+  position with pos, then go with its limits (--go1, --go2), and reads
+  its bestmove.
+- nboard:COMMAND, a program that speaks the NBoard protocol. match.py
+  sends it nboard 2, and for each move the game with set game, then go,
+  and reads its "=== M".
+- gtp:COMMAND, a program that speaks GTP, such as Edax with -gtp. For
+  each move, match.py sends it clear_board, the moves of the game with
+  play, then genmove.
+- random, which plays a legal move at random.
+
+--init1 and --init2 are commands sent once at the start, separated by
+';', such as "weights build/train/weights.bin", or "set depth 4" for
+NBoard. --go1 and --go2 are for the text front end only. It keeps the game itself, by its own rules of the game, so a
 move that is not legal loses the game for the program that made it.
 Passes are made by match.py, without asking.
 
@@ -23,6 +34,7 @@ draw. With --min-score, it exits with 1 if PLAYER1 scored less.
 from __future__ import annotations
 
 import argparse
+import copy
 import random
 import shlex
 import subprocess
@@ -39,6 +51,7 @@ class Board:
         self.sq[27] = self.sq[36] = 'O'
         self.sq[28] = self.sq[35] = 'X'
         self.side = 'X'
+        self.history: list[str] = []  # The moves from the start, and 'pass'
 
     @staticmethod
     def other(side: str) -> str:
@@ -69,9 +82,11 @@ class Board:
         for t in f + [s]:
             self.sq[t] = self.side
         self.side = self.other(self.side)
+        self.history.append(name(s))
 
     def pass_move(self) -> None:
         self.side = self.other(self.side)
+        self.history.append('pass')
 
     def over(self) -> bool:
         return not self.moves('X') and not self.moves('O')
@@ -128,6 +143,96 @@ class Program:
         self.proc.wait()
 
 
+class NBoardPlayer:
+    """A program that speaks the NBoard protocol."""
+
+    START = '-' * 27 + 'O*' + '-' * 6 + '*O' + '-' * 27
+
+    def __init__(self, command: str, init: str) -> None:
+        self.proc = subprocess.Popen(shlex.split(command), stdin=subprocess.PIPE,
+                                     stdout=subprocess.PIPE, text=True, bufsize=1)
+        self.send('nboard 2')
+        for c in init.split(';'):
+            if c.strip():
+                self.send(c.strip())
+
+    def send(self, s: str) -> None:
+        assert self.proc.stdin
+        self.proc.stdin.write(s + '\n')
+        self.proc.stdin.flush()
+
+    def move(self, board: Board) -> str:
+        assert self.proc.stdout
+        moves = ''.join(f'{"BW"[i % 2]}[{"PA" if m == "pass" else m.upper()}]'
+                        for i, m in enumerate(board.history))
+        self.send(f'set game (;GM[Othello]PC[match.py]PB[black]PW[white]RE[?]TI[0]TY[8]'
+                  f'BO[8 {self.START} *]{moves};)')
+        self.send('go')
+        while True:
+            line = self.proc.stdout.readline()
+            if not line:
+                return '(no answer)'
+            if line.startswith('=== '):
+                return line[4:].split('/')[0].strip().lower()
+
+    def close(self) -> None:
+        try:
+            self.send('quit')
+            assert self.proc.stdin
+            self.proc.stdin.close()
+        except BrokenPipeError:
+            pass
+        self.proc.wait()
+
+
+class GtpPlayer:
+    """A program that speaks GTP, as Edax does with -gtp."""
+
+    def __init__(self, command: str, init: str) -> None:
+        self.proc = subprocess.Popen(shlex.split(command), stdin=subprocess.PIPE,
+                                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                     text=True, bufsize=1)
+        self.ask('boardsize 8')
+        for c in init.split(';'):
+            if c.strip():
+                self.ask(c.strip())
+
+    def ask(self, s: str) -> str:
+        """Sends a command, and returns the answer, without its '= '."""
+        assert self.proc.stdin and self.proc.stdout
+        self.proc.stdin.write(s + '\n')
+        self.proc.stdin.flush()
+        lines = []
+        while True:
+            line = self.proc.stdout.readline()
+            if not line:
+                return '(no answer)'
+            if not line.strip():
+                if lines:
+                    break
+                continue
+            lines.append(line.strip())
+        answer = ' '.join(lines)
+        if answer.startswith('?'):
+            raise RuntimeError(f'GTP {s!r}: {answer}')
+        return answer[1:].strip()
+
+    def move(self, board: Board) -> str:
+        self.ask('clear_board')
+        for i, m in enumerate(board.history):
+            self.ask(f'play {"bw"[i % 2]} {m}')
+        return self.ask(f'genmove {"b" if board.side == "X" else "w"}').lower()
+
+    def close(self) -> None:
+        try:
+            self.ask('quit')
+            assert self.proc.stdin
+            self.proc.stdin.close()
+        except (BrokenPipeError, RuntimeError):
+            pass
+        self.proc.wait()
+
+
 class RandomPlayer:
     def __init__(self, seed: int) -> None:
         self.rng = random.Random(seed)
@@ -140,7 +245,13 @@ class RandomPlayer:
 
 
 def make_player(spec: str, go: str, init: str, seed: int):
-    return RandomPlayer(seed) if spec == 'random' else Program(spec, go, init)
+    if spec == 'random':
+        return RandomPlayer(seed)
+    if spec.startswith('nboard:'):
+        return NBoardPlayer(spec[7:], init)
+    if spec.startswith('gtp:'):
+        return GtpPlayer(spec[4:], init)
+    return Program(spec, go, init)
 
 
 def opening(rng: random.Random, plies: int) -> Board:
@@ -203,8 +314,7 @@ def main() -> int:
         for i in range(args.openings):
             start = opening(rng, args.plies)
             for p1_black in (True, False):
-                board = Board()
-                board.sq, board.side = list(start.sq), start.side
+                board = copy.deepcopy(start)
                 black, white = (p1, p2) if p1_black else (p2, p1)
                 b, w, moves, note = play(black, white, board)
                 mine, theirs = (b, w) if p1_black else (w, b)

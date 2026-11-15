@@ -7,11 +7,13 @@
 
 NICE_CPU_TAG    := V2.0
 NICEEMU_SHA256  := 7726cfdf6c86513d156ed75e52c287a7d88ef0c82c7bb49fa02558dde0cf7cf1
-# The FFO endgame positions, with their exact scores, from Edax's
-# problem/ at a pinned commit.
+# Edax at a pinned commit (4.7): the FFO endgame positions, with their
+# exact scores, from its problem/, and for make edax, its source, and
+# the evaluation weights of its release v4.4, which its README names.
 EDAX_COMMIT     := 786421f355219ade872ce7285c1cab1eaf67836a
 FFO1_SHA256     := 898a13889df1cc83ede69b014f9df40650af6697f47cd96b4a0fb494ca404105
 FFO20_SHA256    := b522fcdfd36811d5e07b56dc531e2d6272ec370caa45638e63f134e878558c25
+EDAX_EVAL_SHA256 := 31a9fede7ae9a62bd3a78b2ba457d276d2421b15d3d85b6f8b9a9ba7beddf395
 
 NICE_CPU ?= deps/nice_cpu-$(NICE_CPU_TAG)
 NICEEMU  ?= deps/niceemu-$(NICE_CPU_TAG)-x86_64-linux/niceemu
@@ -33,6 +35,14 @@ NICEBUILD   = $(PYTHON) $(NICE_CPU)/translator/nicebuild.py
 RELEASE_URL = https://github.com/MJoergen/nice_cpu/releases/download/$(NICE_CPU_TAG)
 NICEEMU_TGZ = niceemu-$(NICE_CPU_TAG)-x86_64-linux.tar.gz
 EDAX_RAW    = https://raw.githubusercontent.com/abulmo/edax-reversi/$(EDAX_COMMIT)/problem
+EDAX_GIT    = https://github.com/abulmo/edax-reversi.git
+EDAX_EVAL   = https://github.com/abulmo/edax-reversi/releases/download/v4.4/eval.7z
+# Edax, built by make edax for the CPU EDAX_ARCH, as its Makefile names
+# them (x86-64, x86-64-v2, x86-64-v3, ...). match.py plays it by GTP, on
+# one thread, without its book.
+EDAX_ARCH  ?= x86-64-v3
+EDAX        = deps/edax/bin/lEdax-$(EDAX_ARCH)
+EDAX_GTP    = gtp:$(EDAX) -gtp -n 1 -book-usage off -ponder off -eval-file deps/edax/data/eval.dat
 FFO1        = deps/ffo/fforum-1-19.obf
 FFO20       = deps/ffo/fforum-20-39.obf
 # The first 3 positions of FFO1, for niceemu (about 300 million steps).
@@ -108,7 +118,7 @@ NTCHECK_HOST = 200
 NTCHECK_NICE = 20
 
 
-.PHONY: FORCE help all test host-test nice-test perft-deep ffo-deep match-random train match-hand weights size deps clean distclean board-text board-screen
+.PHONY: FORCE help all test host-test nice-test perft-deep ffo-deep match-random train match-hand weights size deps edax rate clean distclean board-text board-screen
 help:
 	@echo "nice_othello: an Othello engine for the NICE system"
 	@echo ""
@@ -131,6 +141,8 @@ help:
 	@echo "Ethernet port) or PORT=/dev/ttyUSBn (its debug UART), and the tools of a"
 	@echo "checkout of NiceMonMEGA65 (NICEMON=DIR, ../NiceMonMEGA65 by default):"
 	@echo ""
+	@echo "  make edax          fetch and build Edax, and its weights, into deps/edax"
+	@echo "  make rate          the levels against Edax's (RATE_PAIRS, RATE_OPENINGS), a few minutes"
 	@echo "  make board-text    load and run the text front end, then talk to it over the line"
 	@echo "  make board-screen  load and run the windowed front end, for the screen and keyboard"
 	@echo ""
@@ -245,6 +257,7 @@ host-test: build/host/othello_text build/host/randgames build/host/solvecheck bu
            build/host/train $(FFO1)
 	@tools/runtest.sh host_text text tests/text.input host build/host/othello_text
 	@tools/runtest.sh host_search search tests/search.input host build/host/othello_text
+	@tools/runtest.sh host_nboard nboard tests/nboard.input host build/host/othello_text
 	@tools/runtest.sh host_perft9 perft9 tests/perft9.input host build/host/othello_text
 	@tools/runtest.sh host_randgames randgames$(RANDGAMES_HOST) /dev/null host build/host/randgames $(RANDGAMES_HOST)
 	@tools/runtest.sh host_solvecheck solvecheck$(word 2,$(SOLVECHECK_HOST)) /dev/null host build/host/solvecheck $(SOLVECHECK_HOST)
@@ -257,6 +270,7 @@ nice-test: build/nice/othello_text.bin build/nice/othello_screen.bin build/nice/
            build/test/mon_othello_text.bin build/test/mon_othello_screen.bin $(FFO1_NICE) | $(NICEEMU)
 	@tools/runtest.sh nice_text text tests/text.input nice build/nice/othello_text.bin
 	@tools/runtest.sh nice_search search tests/search.input nice build/nice/othello_text.bin
+	@tools/runtest.sh nice_nboard nboard tests/nboard.input nice build/nice/othello_text.bin
 	@tools/runtest.sh nice_perft7 perft7 tests/perft7.input nice build/nice/othello_text.bin
 	@tools/runtest.sh nice_randgames randgames$(RANDGAMES_NICE) /dev/null nice build/nice/randgames.bin
 	@tools/runtest.sh nice_solvecheck solvecheck$(word 2,$(SOLVECHECK_NICE)) /dev/null nice build/nice/solvecheck.bin
@@ -343,6 +357,28 @@ deps/niceemu-$(NICE_CPU_TAG)-x86_64-linux/niceemu:
 	tar xzf deps/$(NICEEMU_TGZ) -C deps
 	rm deps/$(NICEEMU_TGZ)
 	@touch $@
+
+# The levels against Edax at its levels of the same number (LOG.md has
+# all the pairs measured), on the host: the levels are depths, so the
+# moves, and the strength, are those of the MEGA65.
+RATE_PAIRS    ?= 1:1 2:2 3:3 4:4 5:5
+RATE_OPENINGS ?= 50
+rate: build/host/othello_fast $(EDAX)
+	tools/rate.sh build/host/othello_fast "$(EDAX_GTP)" $(RATE_OPENINGS) $(RATE_PAIRS)
+
+# Edax: its source at EDAX_COMMIT, built, and its evaluation weights.
+# Not in make deps: only make rate needs it.
+edax: $(EDAX)
+
+$(EDAX):
+	rm -rf deps/edax.tmp
+	git init -q deps/edax.tmp
+	cd deps/edax.tmp && git fetch -q --depth 1 $(EDAX_GIT) $(EDAX_COMMIT) && git checkout -q FETCH_HEAD
+	$(MAKE) -C deps/edax.tmp/src build ARCH=$(EDAX_ARCH) OS=linux
+	curl -sSfL -o deps/edax.tmp/eval.7z $(EDAX_EVAL)
+	echo "$(EDAX_EVAL_SHA256)  deps/edax.tmp/eval.7z" | sha256sum -c --quiet
+	cd deps/edax.tmp && 7z x -y eval.7z > /dev/null && rm eval.7z
+	rm -rf deps/edax && mv deps/edax.tmp deps/edax
 
 clean:
 	rm -rf build

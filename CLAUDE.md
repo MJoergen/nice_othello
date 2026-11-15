@@ -17,11 +17,12 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
   test.
 - `tools/`: `runtest.sh`; `size.py`, which checks the size of the
   MEGA65 build against the budget (from nice_chess); `match.py`, which
-  plays two programs, or one and random moves, through the text front
-  end; `train.c` (C, on the host), which learns the N-tuple weights by
+  plays two programs (text front end, NBoard, or GTP), or one and
+  random moves; `train.c` (C, on the host), which learns the N-tuple weights by
   TD(λ) self-play, in threads; `variant.sh`, which trains and measures
   a choice of patterns and stages; `mkweights.py`, which writes the
-  weights of the builds as C, into `build/gen/`.
+  weights of the builds as C, into `build/gen/`; `rate.sh`, which plays
+  the levels against Edax.
 - `doc/HISTORY.md`: how the engine was built, by stages, and the
   decisions, after the fact. Plans and open items are GitHub issues,
   not files or TODO comments.
@@ -47,6 +48,8 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
     make train          # learn N-tuple weights into build/train/weights.bin (minutes)
     make match-hand     # those weights against the hand-written evaluation
     make weights        # make those weights the builds' (src/engine/ntuple_weights.bin)
+    make edax           # Edax, built, into deps/edax (for make rate)
+    make rate           # the levels against Edax's (a few minutes)
     make size           # the MEGA65 builds against the 92K-word budget
 
 `make board-text` and `make board-screen` need `ETH=IP` or

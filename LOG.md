@@ -2,6 +2,33 @@
 
 Investigations made during the development (doc/HISTORY.md), newest first.
 
+## 2026-11-15: The levels against Edax, at Stage 8
+
+Each level (`level N` and `go`, `build/host/othello_fast`) against Edax
+4.7 by GTP at its levels (`-l`), on one thread, without its book: 50
+openings of 6 random moves, each with both colors, 100 games. The
+score of nice_othello:
+
+| Level | Edax 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 41 | 7.5 | 5 | 0 | 1 | 0 | 1 | 0 |
+| 2 | 65.5 | 34 | 10 | 3 | 2.5 | 0 | 0 | 0 |
+| 3 | 96 | 52.5 | 47 | 22 | 5.5 | 2 | 3 | 0.5 |
+| 4 | 98 | 86.5 | 68 | 44 | 27.5 | 7 | 10.5 | 6 |
+| 5 | 99 | 87 | 77.5 | 55.5 | 42 | 18 | 21.5 | 8 |
+
+Against Edax's level of the same number, the difference of Elo is -63,
+-115, -20, -41, and -56. The levels' depths are 1, 2, 4, 6, and 7, and
+Edax's level N searches N moves deep, so at the same depth Edax is
+about 2 moves stronger. `make rate` played the diagonal again in 96
+seconds, at a load of 22, with the same scores: the games are the same
+each time.
+
+Under NBoard, Edax 4.7 wrote its "=== move" only after it read the next
+line; a ping after go brought it once, and not the next time. By GTP,
+each answer comes at once, and the 50 games of 25 openings at level
+1, many of them with passes, all ended.
+
 ## 2026-11-15: The windowed front end, at Stage 7
 
 The game of `tests/screen_game.keys`: the engine plays both sides at

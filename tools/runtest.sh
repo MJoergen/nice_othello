@@ -9,7 +9,8 @@
 #
 # The lines that match a pattern of tests/CHECK.grep (with the digits
 # at the end of CHECK left out: perft6 uses perft.grep), after the
-# prompts "> " and the times (" time N") are taken off, and niceemu's
+# prompts "> " and the times (" time N", and "/T" at the end of NBoard's
+# "=== M/EVAL/T") are taken off, and niceemu's
 # report after the halt (but for the screen), and then
 # "exit N" with main's result, with the version that follows
 # "nice_othello " ($VERSION, which the Makefile exports) as VERSION,
@@ -40,7 +41,7 @@ fi
 
 expected=tests/$check.expected
 version="s/nice_othello ${VERSION:?the Makefile exports VERSION}/nice_othello VERSION/g"
-{ sed '/^Halted (/,/^Screen/d; s/^\(> \)*//; s/ time [0-9][0-9]*//' $raw | grep -f tests/${check%%[0-9]*}.grep | sed "$version"; echo "exit $status"; } > $out
+{ sed '/^Halted (/,/^Screen/d; s/^\(> \)*//; s/ time [0-9][0-9]*//; s/^\(=== [^/]*\/[^/]*\)\/[0-9.]*$/\1/' $raw | grep -f tests/${check%%[0-9]*}.grep | sed "$version"; echo "exit $status"; } > $out
 if cmp -s $out $expected; then
     echo "PASS $name"
 else

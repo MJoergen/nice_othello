@@ -1,0 +1,25 @@
+set myname nice_othello
+pong 1
+status Thinking
+=== E6/0.88
+status
+status Thinking
+search F4 -1.15 0 4
+status
+status Thinking
+=== G5/0.88
+status
+status Invalid move D3
+status Thinking
+=== G8/18.00
+status
+status Thinking
+status The game is over
+status
+status Thinking
+=== F8/64.00
+status
+status Invalid game
+learned
+pong 2
+exit 0

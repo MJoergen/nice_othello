@@ -11,7 +11,8 @@ host. The weights are built into every build, and the N-tuple
 evaluation is the one the engine plays with. The text front end has 5
 levels, from a move in a moment to about 30 seconds a game on the
 MEGA65. On the MEGA65 it plays on the screen and keyboard, or as the
-text front end over the UART. CONTRIBUTING.md says how to build it and run
+text front end over the UART. It speaks NBoard, and its levels are
+rated against Edax's. CONTRIBUTING.md says how to build it and run
 the tests, and doc/HISTORY.md how far the work has come.
 
 The engine will be for Othello
@@ -141,6 +142,12 @@ and corners. Only a set that wins is kept.
 
 As in nice_chess: a windowed front end for the MEGA65's screen and
 keyboard, a text front end over the UART, and the engine on the host.
-On the host, it speaks the NBoard protocol, which Othello GUIs use, so
-that its strength can be rated in matches against Edax at its levels,
-as nice_chess is rated against Stockfish.
+The text front end also speaks the NBoard protocol, which Othello GUIs
+use: its command `nboard` switches to it.
+
+The 5 levels are rated against Edax, on the host, by `make rate`. A
+level is a depth and a number of empty squares to solve at, so a level
+plays the same moves on the host and on the MEGA65, and the rating
+holds for both. Each level scores 34 to 47% against Edax's level of
+the same number (doc/HISTORY.md, LOG.md), though Edax searches less
+deep there: it judges positions better.
