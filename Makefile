@@ -5,8 +5,8 @@
 # NICEEMU=PATH use local copies of nice_cpu and niceemu instead.
 # make help lists the targets.
 
-NICE_CPU_TAG    := V2.0
-NICEEMU_SHA256  := 7726cfdf6c86513d156ed75e52c287a7d88ef0c82c7bb49fa02558dde0cf7cf1
+NICE_CPU_TAG    := V2.4
+NICEEMU_SHA256  := be38ad95b204b712b911a79e34cd0222ed91409724fb23b697819a2d76df0389
 # Edax at a pinned commit (4.7): the FFO endgame positions, with their
 # exact scores, from its problem/, and for make edax, its source, and
 # the evaluation weights of its release v4.4, which its README names.

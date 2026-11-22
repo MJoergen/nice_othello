@@ -146,7 +146,8 @@ evaluation, and its selective search, are the better ones.
 
 ## Decisions
 
-1. nice_cpu is pinned to V2.0, the release nice_chess uses.
+1. nice_cpu was pinned to V2.0, the release nice_chess used, and is
+   pinned to V2.4, the latest, for the release V1.0.
 2. Black is X and white is O, and a position is 64 characters and the
    side to move, as in Edax and NBoard, so that positions can be passed
    between them.

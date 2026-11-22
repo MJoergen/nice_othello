@@ -2,6 +2,25 @@
 
 Investigations made during the development (doc/HISTORY.md), newest first.
 
+## 2026-11-22: nice_cpu V2.4
+
+The pin went from V2.0 to V2.4, the latest release of nice_cpu, at the
+start of the release V1.0.
+
+- `make test` passes, and no `*.expected` file changes.
+- Size, by `make size`: the text front end has 18268 words of code and
+  runtime, 51 more than at V2.0, and 38299 of data, 1 more; it needs
+  84407 words of the budget of 94176 (+9769). The windowed front end
+  has 14257 and 37902, 4 and 0 more, and needs 80172 (+14004). The
+  peak stacks do not change.
+- Speed, in the steps of the tests in niceemu: `nice_search` took
+  135008370 steps, 1041 more than at V2.0, and `nice_perft7` 10724713,
+  201 more. The others differ by less than 0.06%; the most is
+  `nice_screen_game`, 8184448, 4281 more.
+- V2.4's `nicebuild.py` joins the float library only for a program
+  that uses it. The MEGA65 builds have none of its labels: no float
+  library is joined.
+
 ## 2026-11-15: The levels against Edax, at Stage 8
 
 Each level (`level N` and `go`, `build/host/othello_fast`) against Edax

@@ -9,7 +9,7 @@ Needs Python 3.10+, clang with the wasm32 target, `wasm-ld`, `llvm-ar`,
 a C compiler for the host, `git`, and `curl`.
 
     make             # list the targets
-    make deps        # nice_cpu V2.0, niceemu V2.0, and the FFO positions into deps/
+    make deps        # nice_cpu V2.4, niceemu V2.4, and the FFO positions into deps/
     make all         # build/nice/ for niceemu, build/mega65/ for the MEGA65, build/host/ for the host
     make test        # the tests, on the host and in niceemu
     make perft-deep  # perft to depth 11 on the host, without the checks (a few seconds)
