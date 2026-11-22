@@ -15,6 +15,10 @@ A player is one of:
 - gtp:COMMAND, a program that speaks GTP, such as Edax with -gtp. For
   each move, match.py sends it clear_board, the moves of the game with
   play, then genmove.
+- board:FILE.bin, the text front end built for the monitor of the
+  MEGA65 (build/mega65/othello_text.bin), which --eth HOST or --port
+  DEVICE loads into the board, where it is played as the first kind,
+  through board.py.
 - random, which plays a legal move at random.
 
 --init1 and --init2 are commands sent once at the start, separated by
@@ -28,7 +32,8 @@ played twice, with each player black once. The openings come from
 --seed, so a run plays the same openings every time.
 
 It prints each game and the score of PLAYER1: 1 for a win, 1/2 for a
-draw. With --min-score, it exits with 1 if PLAYER1 scored less.
+draw. With --min-score, it exits with 1 if PLAYER1 scored less, and
+with --legal, if a player made a move that was not legal.
 """
 
 from __future__ import annotations
@@ -39,6 +44,8 @@ import random
 import shlex
 import subprocess
 import sys
+
+from board import Board as MegaBoard
 
 DIRS = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
 
@@ -143,6 +150,39 @@ class Program:
         self.proc.wait()
 
 
+class BoardProgram:
+    """The text front end on the board, under its monitor."""
+
+    def __init__(self, binfile: str, go: str, init: str, args: argparse.Namespace) -> None:
+        if not (args.eth or args.port):
+            sys.exit('match.py: --eth HOST or --port DEVICE names the board')
+        link = ['--eth', args.eth] if args.eth else ['--port', args.port]
+        self.go = go
+        self.board = MegaBoard(args.nicemon, link, binfile)
+        for c in init.split(';'):
+            if c.strip():
+                self.send(c.strip())
+
+    def send(self, s: str) -> None:
+        self.board.write((s + '\n').encode('latin-1'))
+
+    def move(self, board: Board) -> str:
+        self.send(f'pos {board.text()}')
+        self.send(self.go)
+        while True:
+            line = self.board.readline(600)
+            if line is None:
+                return '(no answer)'
+            line = line.lstrip('> ')
+            if line.startswith('bestmove '):
+                return line.split()[1]
+
+    def close(self) -> None:
+        self.send('quit')
+        self.board.wait_returned(10)
+        self.board.close()
+
+
 class NBoardPlayer:
     """A program that speaks the NBoard protocol."""
 
@@ -244,9 +284,11 @@ class RandomPlayer:
         pass
 
 
-def make_player(spec: str, go: str, init: str, seed: int):
+def make_player(spec: str, go: str, init: str, seed: int, args: argparse.Namespace):
     if spec == 'random':
         return RandomPlayer(seed)
+    if spec.startswith('board:'):
+        return BoardProgram(spec[6:], go, init, args)
     if spec.startswith('nboard:'):
         return NBoardPlayer(spec[7:], init)
     if spec.startswith('gtp:'):
@@ -302,14 +344,19 @@ def main() -> int:
     ap.add_argument('--plies', type=int, default=6, help='the random moves of an opening')
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--min-score', type=float, help='the least score of PLAYER1 to pass')
+    ap.add_argument('--legal', action='store_true', help='fail if a move was not legal')
+    ap.add_argument('--eth', metavar='HOST[:PORT]', help="the board's Ethernet port, for board:")
+    ap.add_argument('--port', metavar='DEVICE', help="the board's debug UART, for board:")
+    ap.add_argument('--nicemon', help='a checkout of NiceMonMEGA65, for board: (default $NICEMON)')
     args = ap.parse_args()
 
     rng = random.Random(args.seed)
-    p1 = make_player(args.player1, args.go1, args.init1, args.seed + 1)
-    p2 = make_player(args.player2, args.go2, args.init2, args.seed + 2)
+    p1 = make_player(args.player1, args.go1, args.init1, args.seed + 1, args)
+    p2 = make_player(args.player2, args.go2, args.init2, args.seed + 2, args)
     score = 0.0
     games = 0
     discs = 0
+    illegal = 0
     try:
         for i in range(args.openings):
             start = opening(rng, args.plies)
@@ -320,6 +367,7 @@ def main() -> int:
                 mine, theirs = (b, w) if p1_black else (w, b)
                 score += 1 if mine > theirs else 0.5 if mine == theirs else 0
                 discs += mine - theirs
+                illegal += bool(note)
                 games += 1
                 print(f'game {games}: player1 {"black" if p1_black else "white"}, '
                       f'X {b} O {w}, player1 {mine - theirs:+d}'
@@ -333,6 +381,9 @@ def main() -> int:
     print(f'score {score:g}/{games}, discs {discs:+d}')
     if args.min_score is not None and score < args.min_score:
         print(f'FAIL: below {args.min_score:g}')
+        return 1
+    if args.legal and illegal:
+        print(f'FAIL: {illegal} games ended by a move that was not legal')
         return 1
     return 0
 

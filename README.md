@@ -24,6 +24,26 @@ niceemu, on the MEGA65 under the monitor of
 host. What is new is the evaluation: its weights are learned by the
 program itself, by self-play, with temporal-difference (TD) learning.
 
+## Download
+
+Each [release](https://github.com/MJoergen/nice_othello/releases) has
+`nice_othello-TAG.tar.gz`, where TAG is the release, such as `V1.0`,
+and `SHA256SUMS`. [RELEASE_NOTES.md](RELEASE_NOTES.md) says what
+changed in each, and what it needs. The archive's directory has:
+
+- `mega65/`: both front ends for the MEGA65, under the monitor of
+  NiceMonMEGA65: `nice_othello-TAG.bin`, the windowed front end, and
+  `nice_othello-text-TAG.bin`, the text front end.
+- `niceemu/`: both front ends for niceemu:
+  `nice_othello-niceemu-TAG.bin` and
+  `nice_othello-text-niceemu-TAG.bin`. They are built for niceemu
+  alone, and do not run under the MEGA65's monitor.
+- `linux-x86_64/nice_othello`: the text front end on the host, linked
+  statically. It speaks NBoard after its command `nboard`.
+
+The front ends show their version: the banner of the text front end,
+and the top of the windowed front end's panel.
+
 ## The idea
 
 The strongest Othello programs do not use a deep neural network. The

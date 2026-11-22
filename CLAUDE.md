@@ -18,7 +18,11 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
 - `tools/`: `runtest.sh`; `size.py`, which checks the size of the
   MEGA65 build against the budget (from nice_chess); `match.py`, which
   plays two programs (text front end, NBoard, or GTP), or one and
-  random moves; `train.c` (C, on the host), which learns the N-tuple weights by
+  random moves, or the board (`board:FILE.bin`); `board.py`, a
+  program under the monitor on the board, as its console, for
+  `board-test` and `board-match`; `release.py`, the scripted parts of
+  a release (`test_release.py` tests it, in `make test`);
+  `train.c` (C, on the host), which learns the N-tuple weights by
   TD(λ) self-play, in threads; `variant.sh`, which trains and measures
   a choice of patterns and stages; `mkweights.py`, which writes the
   weights of the builds as C, into `build/gen/`; `rate.sh`, which plays
@@ -26,6 +30,9 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
 - `doc/HISTORY.md`: how the engine was built, by stages, and the
   decisions, after the fact. Plans and open items are GitHub issues,
   not files or TODO comments.
+- `doc/RELEASE.md`: how to make a release; `RELEASE_NOTES.md`: what
+  changed in each release, newest first. Add a section for every new
+  tag.
 - `LOG.md`: investigations (measurements, options weighed), newest
   first, dated.
 - `CONTRIBUTING.md`: building and the tests, for human contributors.
@@ -51,9 +58,11 @@ NiceMonMEGA65's monitor, and on the host. See README.md for the design.
     make edax           # Edax, built, into deps/edax (for make rate)
     make rate           # the levels against Edax's (a few minutes)
     make size           # the MEGA65 builds against the 92K-word budget
+    make dist           # the archive of a release in build/dist/ (VERSION=V1.0)
+    make release-check ETH=IP   # board-test and board-match, the stamp for release.py tag
 
-`make board-text` and `make board-screen` need `ETH=IP` or
-`PORT=DEVICE` and a NiceMonMEGA65 checkout (`NICEMON=DIR`). It is not in CI; run it only when the user
+The board targets (`board-*`, `release-check`) need `ETH=IP` or
+`PORT=DEVICE` and a NiceMonMEGA65 checkout (`NICEMON=DIR`). They are not in CI; run them only when the user
 asks.
 
 ## Conventions
@@ -93,5 +102,9 @@ asks.
   deliberately, not as a side effect.
 - The docs are written in short, plain, factual sentences, and say what
   is true now. History goes in doc/HISTORY.md or LOG.md.
+- Releases are `Vmajor.minor`, nice_othello's own (doc/RELEASE.md),
+  prepared on a branch `dev-Vmajor.minor`. The front ends show
+  `VERSION`, from `git describe`; the tests see it as `VERSION`, so a
+  release changes no `*.expected` file.
 - Commit messages: a short subject (`Stage N: ...`, `doc: ...`,
   `CI: ...`), then the why.

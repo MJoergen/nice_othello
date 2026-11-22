@@ -6,12 +6,14 @@ run the tests.
 ## Building and testing
 
 Needs Python 3.10+, clang with the wasm32 target, `wasm-ld`, `llvm-ar`,
-a C compiler for the host, `git`, and `curl`.
+a C compiler for the host, `git`, and `curl`. `make dist` links the
+host build statically, which needs glibc's static library: `libc6-dev`
+has it on Debian and Ubuntu, `glibc-static` on Fedora.
 
     make             # list the targets
     make deps        # nice_cpu V2.4, niceemu V2.4, and the FFO positions into deps/
     make all         # build/nice/ for niceemu, build/mega65/ for the MEGA65, build/host/ for the host
-    make test        # the tests, on the host and in niceemu
+    make test        # the tests, on the host and in niceemu, and of tools/release.py
     make perft-deep  # perft to depth 11 on the host, without the checks (a few seconds)
     make ffo-deep    # FFO positions 20 to 38 on the host (about a minute)
     make match-random   # the host build at depth 4 against random moves (20 games)
@@ -21,6 +23,7 @@ a C compiler for the host, `git`, and `curl`.
     make edax        # fetch and build Edax at its pinned commit, with its weights
     make rate        # the 5 levels against Edax's levels 1 to 5 (a few minutes)
     make size        # the size of the MEGA65 build, against the 92K words the monitor leaves it
+    make dist        # the archive of a release, and SHA256SUMS, in build/dist/
 
 To use local copies of nice_cpu and niceemu instead, pass `NICE_CPU=DIR`
 and `NICEEMU=PATH` to make.
@@ -65,6 +68,8 @@ MEGA65 build after a stand-in for the monitor:
   engine plays a whole game, with a pass, by the key M. Its moves are
   those of the text front end's `go` at the same level, search for
   search.
+- `tools-test`: the tests of `tools/release.py`, in
+  `tools/test_release.py`.
 - `ffo1`: `tests/ffosuite.c` solves the FFO positions 1 to 19 (3 in
   niceemu), of 14 to 16 empty squares, which must give the published
   scores. `make ffo-deep` solves 20 to 38, of up to 24.
@@ -72,7 +77,8 @@ MEGA65 build after a stand-in for the monitor:
 `tools/match.py` plays two programs, or one and random moves, from
 random openings, each with both colors. A program is the text front
 end, or one that speaks NBoard (`nboard:COMMAND`) or GTP
-(`gtp:COMMAND`, as Edax does). `tools/rate.sh`, which `make rate`
+(`gtp:COMMAND`, as Edax does), or the text front end on the board
+(`board:FILE.bin`). `tools/rate.sh`, which `make rate`
 runs, plays the levels against Edax's and gives the difference of Elo.
 Edax is not in `make deps`: `make edax` needs git, a C compiler, and
 7z. `tools/variant.sh NAME MASK
@@ -88,3 +94,24 @@ load the text front end, or the windowed one, under NiceMonMEGA65's
 monitor and run it. The keys of the windowed front end are at the top
 of `src/ui/screen.c`, and on its screen. Both need a checkout of NiceMonMEGA65 (`NICEMON=DIR`, `../NiceMonMEGA65` by
 default).
+
+    make board-test ETH=IP
+    make board-match ETH=IP
+
+run the tests of the MEGA65 builds on the board, through
+`tools/board.py`, which must give what they give in niceemu, and play
+two games of the board against the host build.
+
+The front ends show `VERSION`: the release tag on a tagged commit, and
+what `git describe` says between tags. `build/gen/version.c` holds it.
+`tools/runtest.sh` replaces it with `VERSION` in the output, so the
+`*.expected` files do not depend on it.
+
+## Releases
+
+[doc/RELEASE.md](doc/RELEASE.md) is how to make a release, with
+`tools/release.py` and `make release-check`, which runs `make
+board-test` and `make board-match` on the MEGA65. The push of a tag
+starts [release.yml](.github/workflows/release.yml), which builds the
+archive and creates the GitHub release.
+[RELEASE_NOTES.md](RELEASE_NOTES.md) has what changed in each release.

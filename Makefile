@@ -99,6 +99,10 @@ MONFLAGS = $(NICEFLAGS) --monitor
 HOSTFLAGS = -O2 -W -Wall -Wextra -DCHECK_STATE -DTT_BITS=$(TT_BITS) $(NT_FLAGS)
 # The host, fast: without asserts and the check, and with a larger table.
 FASTFLAGS = -O2 -W -Wall -Wextra -DNDEBUG -DTT_BITS=$(TT_BITS_FAST) $(NT_FLAGS)
+# The release's host build: the fast one, linked statically, so that it
+# runs on any x86_64 Linux. It needs glibc's libc.a: libc6-dev on Debian
+# and Ubuntu, glibc-static on Fedora.
+STATICFLAGS = $(FASTFLAGS) -static
 
 # The trainer (tools/train.c): its games, threads, and other options,
 # and the weights it writes, and that make match-hand plays.
@@ -118,14 +122,15 @@ NTCHECK_HOST = 200
 NTCHECK_NICE = 20
 
 
-.PHONY: FORCE help all test host-test nice-test perft-deep ffo-deep match-random train match-hand weights size deps edax rate clean distclean board-text board-screen
+.PHONY: FORCE help all test host-test nice-test tools-test perft-deep ffo-deep match-random train match-hand weights size deps edax rate
+.PHONY: clean distclean board-text board-screen board-test board-match dist release-check
 help:
 	@echo "nice_othello: an Othello engine for the NICE system"
 	@echo ""
 	@echo "  make help          show this text (the default)"
 	@echo "  make deps          fetch nice_cpu $(NICE_CPU_TAG), niceemu $(NICE_CPU_TAG), and the FFO positions into deps/"
 	@echo "  make all           build the text front end, for niceemu, for the MEGA65, and for the host"
-	@echo "  make test          the tests, on the host and in niceemu (about a minute)"
+	@echo "  make test          the tests, on the host and in niceemu, and of tools/release.py (about a minute)"
 	@echo "  make perft-deep    perft to depth 11 on the host, without the checks (a few seconds)"
 	@echo "  make ffo-deep      solve FFO positions 20 to 38 on the host (about a minute)"
 	@echo "  make match-random  the host build at depth 4 against random moves (20 games)"
@@ -134,6 +139,7 @@ help:
 	@echo "  make match-hand    the N-tuple evaluation with WEIGHTS against the hand-written one, at depth 4 (100 games)"
 	@echo "  make weights       copy WEIGHTS into $(NT_WEIGHTS_BIN), the weights of the builds"
 	@echo "  make size          the size of the MEGA65 build, against the board's budget"
+	@echo "  make dist          the archive of a release, and SHA256SUMS, in build/dist/ (VERSION=V1.0)"
 	@echo "  make clean         remove build/"
 	@echo "  make distclean     remove build/ and deps/"
 	@echo ""
@@ -145,6 +151,9 @@ help:
 	@echo "  make rate          the levels against Edax's (RATE_PAIRS, RATE_OPENINGS), a few minutes"
 	@echo "  make board-text    load and run the text front end, then talk to it over the line"
 	@echo "  make board-screen  load and run the windowed front end, for the screen and keyboard"
+	@echo "  make board-test    the tests of both front ends on the board"
+	@echo "  make board-match   two games of the board against the host build (a few minutes)"
+	@echo "  make release-check board-test and board-match, and the stamp that tools/release.py tag needs"
 	@echo ""
 	@echo "NICE_CPU=DIR and NICEEMU=PATH use local copies of nice_cpu and niceemu."
 
@@ -210,6 +219,10 @@ build/host/othello_fast: $(ENGINE) $(HEADERS) src/ui/text.c src/platform/host.c 
 	@mkdir -p $(@D)
 	$(CC) $(FASTFLAGS) -o $@ $(ENGINE) $(VERSIONC) src/ui/text.c src/platform/host.c
 
+build/host/othello_static: $(ENGINE) $(HEADERS) src/ui/text.c src/platform/host.c $(VERSIONC)
+	@mkdir -p $(@D)
+	$(CC) $(STATICFLAGS) -o $@ $(ENGINE) $(VERSIONC) src/ui/text.c src/platform/host.c
+
 build/host/randgames: $(ENGINE) $(HEADERS) tests/randgames.c
 	@mkdir -p $(@D)
 	$(CC) $(HOSTFLAGS) -o $@ $(ENGINE) tests/randgames.c
@@ -251,7 +264,11 @@ $(FFO1_NICE): $(FFO1)
 	@mkdir -p $(@D)
 	head -3 $< > $@
 
-test: host-test nice-test
+test: host-test nice-test tools-test
+
+# The tests of the tools: tools/test_*.py.
+tools-test:
+	$(PYTHON) -m unittest discover -s tools -p 'test_*.py'
 
 host-test: build/host/othello_text build/host/randgames build/host/solvecheck build/host/ffosuite build/host/ntcheck \
            build/host/train $(FFO1)
@@ -331,6 +348,52 @@ board-text: build/mega65/othello_text.bin
 
 board-screen: build/mega65/othello_screen.bin
 	$(PYTHON) $(NICEMON)/tools/load.py $(BOARDLINK) --monitor $<
+
+# The tests of nice-test that run the MEGA65 builds, on the board. Their
+# searches are by depth, by nodes, or by level, or end before the time
+# of go, so they give the same output as in niceemu.
+board-test: build/mega65/othello_text.bin build/mega65/othello_screen.bin
+	@BOARDLINK="$(BOARDLINK)" tools/runtest.sh board_text text tests/text.input board build/mega65/othello_text.bin
+	@BOARDLINK="$(BOARDLINK)" tools/runtest.sh board_search search tests/search.input board build/mega65/othello_text.bin
+	@BOARDLINK="$(BOARDLINK)" tools/runtest.sh board_nboard nboard tests/nboard.input board build/mega65/othello_text.bin
+	@BOARDLINK="$(BOARDLINK)" tools/runtest.sh board_perft7 perft7 tests/perft7.input board build/mega65/othello_text.bin
+	@BOARDLINK="$(BOARDLINK)" tools/runtest.sh board_screen screen tests/screen.keys board-screen build/mega65/othello_screen.bin
+
+# Two games, one with each color, of the host build at depth 4 against
+# the board at its default time of a move, 5 seconds. No move may be
+# illegal.
+board-match: build/mega65/othello_text.bin build/host/othello_fast
+	$(PYTHON) tools/match.py $(BOARDLINK) $(if $(NICEMON),--nicemon $(NICEMON)) --openings 1 --legal \
+	  --go1 "go depth 4" --go2 go build/host/othello_fast board:build/mega65/othello_text.bin
+
+# A release (doc/RELEASE.md): the archive nice_othello-VERSION.tar.gz,
+# whose directory holds the MEGA65 builds, nice_othello-VERSION.bin the
+# windowed front end and nice_othello-text-VERSION.bin the text front
+# end; the builds for niceemu, with -niceemu after nice_othello and
+# nice_othello-text, which do not run under the monitor; the static
+# host build of the text front end as nice_othello, for x86_64 Linux;
+# and README.md, RELEASE_NOTES.md, and LICENSE. And SHA256SUMS.
+# The release workflow runs it with VERSION set to the tag, after the
+# tests and make size.
+DIST = build/dist
+DISTDIR = $(DIST)/nice_othello-$(VERSION)
+dist: build/mega65/othello_text.bin build/mega65/othello_screen.bin build/nice/othello_text.bin \
+      build/nice/othello_screen.bin build/host/othello_static
+	rm -rf $(DIST)
+	mkdir -p $(DISTDIR)/mega65 $(DISTDIR)/niceemu $(DISTDIR)/linux-x86_64
+	cp build/mega65/othello_screen.bin $(DISTDIR)/mega65/nice_othello-$(VERSION).bin
+	cp build/mega65/othello_text.bin $(DISTDIR)/mega65/nice_othello-text-$(VERSION).bin
+	cp build/nice/othello_screen.bin $(DISTDIR)/niceemu/nice_othello-niceemu-$(VERSION).bin
+	cp build/nice/othello_text.bin $(DISTDIR)/niceemu/nice_othello-text-niceemu-$(VERSION).bin
+	cp build/host/othello_static $(DISTDIR)/linux-x86_64/nice_othello
+	cp README.md RELEASE_NOTES.md LICENSE $(DISTDIR)/
+	tar czf $(DIST)/nice_othello-$(VERSION).tar.gz -C $(DIST) --owner=0 --group=0 nice_othello-$(VERSION)
+	cd $(DIST) && sha256sum nice_othello-$(VERSION).tar.gz > SHA256SUMS
+	@echo "$(DIST)/nice_othello-$(VERSION).tar.gz"
+
+# The gates of a release on the board, and their stamp (tools/release.py).
+release-check:
+	$(PYTHON) tools/release.py check $(BOARDLINK)
 
 deps: $(NICE_CPU) $(NICEEMU) $(FFO1) $(FFO20)
 
