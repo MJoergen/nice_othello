@@ -2,6 +2,24 @@
 
 Investigations made during the development (doc/HISTORY.md), newest first.
 
+## 2026-11-22: The check on the board for V1.0
+
+`make release-check ETH=192.168.1.67` on `34fd7d5`, a MEGA65 under
+NiceMonMEGA65, with the tools of its checkout at `V2.4.1-17-g2efa63c`:
+
+- `make board-test`: text, search, nboard, perft7, and screen pass,
+  the same output as in niceemu, in 15 seconds with the loads. The two
+  searches of `search.input` without limits solve before the 5 seconds
+  of `go` on the board too.
+- `make board-match`: the host build at depth 4 against the board at
+  its default 5 seconds a move, one opening, both colors: the board
+  won both, 45-19 and 39-25 (the host 0/2, -40 discs), with no move
+  that was not legal, in 208 seconds.
+- The speed of the board: the two solves of FFO #1 in `search.input`,
+  51767 and 51864 nodes, took 63880214 and 64143638 steps in niceemu,
+  and 1042790 and 1047619 microseconds on the board: 61.3 and 61.2
+  million steps a second, where the code assumes nice_chess's 54.
+
 ## 2026-11-22: nice_cpu V2.4
 
 The pin went from V2.0 to V2.4, the latest release of nice_cpu, at the

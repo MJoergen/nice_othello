@@ -60,7 +60,7 @@ against itself at other limits.
 
 ## Stage 3: the N-tuple evaluation (2026-11-14)
 
-`ntuple.c` has the 12 candidate patterns of the README, of which a
+`ntuple.c` has the 12 candidate patterns of the plan's README, of which a
 build uses those of `NT_MASK`, in `NT_STAGES` stages. The weights are
 in RAM, where `engine_ntuple_weights` gives them to the caller; they
 are 0 until the trainer of Stage 4 learns them. The text front end
@@ -144,6 +144,23 @@ around them). Edax's level N searches N moves deep, less than
 nice_othello's (1, 2, 4, 6, and 7), and still wins a little more: its
 evaluation, and its selective search, are the better ones.
 
+## V1.0: the release (2026-11-22)
+
+The work of the release was on the branch `dev-V1.0` (#1). nice_cpu
+went from V2.0 to V2.4, the latest, with no change of output (LOG.md).
+The release procedure came from nice_chess's: doc/RELEASE.md,
+`tools/release.py`, `make dist`, and `release.yml`, which makes the
+GitHub release from the push of a tag. The check on the board is new
+here: `tools/board.py`, also nice_chess's, runs a program under the
+monitor as its console, so `make board-test` runs the tests of the
+MEGA65 builds on the board, and `make board-match` plays the board
+against the host build. Both passed at the first run, and the board
+was measured at 61 million steps a second of this program (LOG.md).
+
+The README, which was the plan, became the user's: how to get, run,
+and play the release, and how the engine works. The plan is in the
+README of commit `9c424bc`, and its stages above.
+
 ## Decisions
 
 1. nice_cpu was pinned to V2.0, the release nice_chess used, and is
@@ -168,7 +185,7 @@ evaluation, and its selective search, are the better ones.
    same order. A place that a symmetry maps onto itself, such as an
    edge or the 3×3 square of a corner, is so read twice, in two orders,
    with the same table: 92 places with all the patterns, where the
-   README counts 50. The value of a position is then that of its
+   plan's README counts 50. The value of a position is then that of its
    images, with no tables to fold the indexes of symmetric states
    together, at the cost of the extra places. Folding instead is for
    Stage 5 to weigh.
